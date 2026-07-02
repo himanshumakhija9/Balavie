@@ -1,0 +1,58 @@
+{
+  "entities": {
+    "UserSettings": {
+      "title": "UserSettings",
+      "description": "User preferences and profiles.",
+      "type": "object",
+      "properties": {
+        "dietType": {
+          "type": "string",
+          "description": "User's chosen diet profile."
+        }
+      }
+    },
+    "MealLog": {
+      "title": "MealLog",
+      "description": "A recorded meal intake transaction.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "name": { "type": "string" },
+        "image": { "type": "string", "description": "Optional base64 image representation" },
+        "calories": { "type": "number" },
+        "protein": { "type": "number" },
+        "carbs": { "type": "number" },
+        "fat": { "type": "number" },
+        "fiber": { "type": "number" },
+        "phosphorus": { "type": "number" },
+        "antioxidants": { "type": "number" },
+        "portionDetected": { "type": "string" },
+        "ingredients": {
+          "type": "array",
+          "description": "List of food components"
+        },
+        "digestBetter": { "type": "string" },
+        "bestTimeOfDay": { "type": "string" },
+        "activityToEliminate": { "type": "string" },
+        "mealPeriod": { "type": "string" },
+        "dateStr": { "type": "string" },
+        "notes": { "type": "string" },
+        "whatToDo": { "type": "string" },
+        "whatNotToDo": { "type": "string" },
+        "epochTime": { "type": "number" }
+      },
+      "required": ["id", "timestamp", "name", "calories", "protein", "carbs", "fat"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}/profile/settings": {
+      "schema": "UserSettings",
+      "description": "The user's personalized diet settings details."
+    },
+    "/users/{userId}/logs/{logId}": {
+      "schema": "MealLog",
+      "description": "Collection of all analyzed historical meal registers."
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "balanceai",
+  "description": "Log your meals through text or photos to instantly receive warm, shame-free nutritional breakdowns, customized active living guidelines, and actionable tips for optimal digestion.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
