@@ -505,11 +505,64 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   });
 }
 
+// Resilient wrapper to retry Gemini requests and fall back to alternative models on high load (e.g. 503 errors)
+async function generateContentWithRetryAndFallbacks(
+  ai: any,
+  params: {
+    contents: any;
+    config: any;
+  },
+  timeoutMs: number = 15000
+): Promise<any> {
+  const modelsToTry = ["gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-flash-latest"];
+  let lastError: any = null;
+
+  for (const model of modelsToTry) {
+    let attempts = model === "gemini-3.5-flash" ? 3 : 1;
+    for (let attempt = 1; attempt <= attempts; attempt++) {
+      try {
+        console.log(`[Gemini API] Attempting model "${model}" (attempt ${attempt}/${attempts})...`);
+        const response = await withTimeout(
+          ai.models.generateContent({
+            model,
+            contents: params.contents,
+            config: params.config,
+          }),
+          timeoutMs
+        );
+        console.log(`[Gemini API] Success with model "${model}" on attempt ${attempt}`);
+        return response;
+      } catch (err: any) {
+        lastError = err;
+        console.warn(
+          `[Gemini API] Model "${model}" failed on attempt ${attempt}: ${err.message || err}`
+        );
+        
+        // If it's a standard client-side validation error (e.g., status 400), don't retry as it is a schema/developer issue
+        const isClientError = err.status && err.status >= 400 && err.status < 500 && err.status !== 429;
+        if (isClientError) {
+          throw err;
+        }
+
+        if (attempt < attempts) {
+          const delay = attempt * 1000;
+          console.log(`[Gemini API] Waiting ${delay}ms before retrying...`);
+          await new Promise((resolve) => setTimeout(resolve, delay));
+        }
+      }
+    }
+  }
+
+  throw lastError || new Error("All model fallback attempts exhausted.");
+}
+
 // API Route for analyzing a meal
 app.post("/api/analyze-meal", async (req, res) => {
   try {
-    const { textInput, imageInput, sessionKey, clarificationAnswers, localHour, dietType, todayMacros, history } = req.body;
+    const { textInput, imageInput, sessionKey, clarificationAnswers, localHour, dietType, todayMacros, history, bodyWeight } = req.body;
     const parsedLocalHour = localHour !== undefined ? Number(localHour) : new Date().getHours();
+
+    const proteinTarget = bodyWeight && Number(bodyWeight) > 0 ? Number(bodyWeight) : 100;
 
     let targetText = sanitizeInputText(textInput || "");
     let targetImage: { mimeType: string; data: string; } | undefined = undefined;
@@ -568,7 +621,7 @@ app.post("/api/analyze-meal", async (req, res) => {
     if (todayMacros && typeof todayMacros === "object") {
       macrosContext = `
 [Today's Cumulative Nutrient Intake so far]:
-- Protein: ${todayMacros.protein || 0}g (Daily Target: 100g)
+- Protein: ${todayMacros.protein || 0}g (Daily Target: ${proteinTarget}g)
 - Carbohydrates: ${todayMacros.carbs || 0}g (Daily Target: 220g)
 - Fats: ${todayMacros.fat || 0}g (Daily Target: 70g)
 - Fiber: ${todayMacros.fiber || 0}g (Daily Target: 25g)
@@ -629,7 +682,7 @@ Focus entirely on support, physical freedom, and healthy metabolic flows. Never 
 Strict content requirements for 'insights' (MUST BE TAILORED DYNAMICALLY BASED ON TODAY'S CUMULATIVE MACROS):
 1. DO NOT give past-tense advice (such as 'chew your food', 'sit upright', or 'eat slower'). 
 2. In 'digestBetter', highlight physical biochemical achievements of this specific food (e.g. 'By consuming this meal, you secured X% of your daily potassium/manganese/calcium/phosphate/iron intake' or similar biochemical/mineral markers) to show what active benefits they just gave to their body.
-3. In 'bestTimeOfDay', you MUST consult the user's [Today's Cumulative Nutrient Intake so far] listed below. Tailor your next-meal suggestions and additions directly to resolve any deficiencies or overconsumptions. If today's carbohydrates are high (e.g., approaching or exceeding 220g), explicitly note this and warn them against consuming fast-acting starches or pastries. If today's protein is low (well below 100g), suggest protein-rich, diet-compliant additions (e.g. tofu/tempeh/lentils/seeds for vegetarian, clean eggs/salmon/chicken for omnivore, etc.) to balance their intake. Include circadian and caffeine timing guidelines (e.g. enjoy food in the morning but avoid eating directly after caffeine to prevent sharp stress-cortisol-insulin spikes).
+3. In 'bestTimeOfDay', you MUST consult the user's [Today's Cumulative Nutrient Intake so far] listed below. Tailor your next-meal suggestions and additions directly to resolve any deficiencies or overconsumptions. If today's carbohydrates are high (e.g., approaching or exceeding 220g), explicitly note this and warn them against consuming fast-acting starches or pastries. If today's protein is low (well below ${proteinTarget}g), suggest protein-rich, diet-compliant additions (e.g. tofu/tempeh/lentils/seeds for vegetarian, clean eggs/salmon/chicken for omnivore, etc.) to balance their intake. Include circadian and caffeine timing guidelines (e.g. enjoy food in the morning but avoid eating directly after caffeine to prevent sharp stress-cortisol-insulin spikes).
 4. In 'activityToEliminate' (representing what physical action they should do right now vs what they cannot/should not do), provide a highly specific recommendation starting with WHAT TO DO vs WHAT NOT TO DO. Do NOT write generic advice like 'go for a walk'. Explain how key nutrients are activating body systems (glycogen synthesis, ATP cycling, muscle fiber transportation) and map this to activities, taking into account the current hour of the day (Current hour: ${parsedLocalHour}):
    - Clearly structure your output using exactly this format:
      ✅ **WHAT TO DO (Focus Work/Exercise/Light Work/Nap/Sleep):** [Specific activity they should engage in, explaining the metabolic and circadian trigger/reason]
@@ -675,9 +728,9 @@ Strict JSON Response Schema Rules:
     console.log("Contacting Gemini for meal analysis...");
     
     try {
-      const response = await withTimeout(
-        ai.models.generateContent({
-          model: "gemini-3.5-flash",
+      const response = await generateContentWithRetryAndFallbacks(
+        ai,
+        {
           contents: { parts },
           config: {
             systemInstruction: systemPromptMessage,
@@ -739,7 +792,7 @@ Strict JSON Response Schema Rules:
               required: ["status"]
             }
           }
-        }),
+        },
         15000 // 15 seconds timeout to guarantee ultra-responsive offline/simulated fallback
       );
 

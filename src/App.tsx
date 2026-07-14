@@ -603,6 +603,7 @@ export default function App() {
         imageInput: imageInput,
         localHour: new Date().getHours(), // Get client local hour
         dietType: dietType,
+        bodyWeight: bodyWeight,
         todayMacros: {
           protein: todayProtein,
           carbs: todayCarbs,
