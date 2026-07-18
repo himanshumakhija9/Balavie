@@ -4,8 +4,10 @@ import fs from "fs";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
+import Stripe from "stripe";
 
 dotenv.config();
+
 
 const app = express();
 const PORT = 3000;
@@ -555,6 +557,55 @@ async function generateContentWithRetryAndFallbacks(
 
   throw lastError || new Error("All model fallback attempts exhausted.");
 }
+
+// API Route to create a Stripe Checkout Session for donations
+app.post("/api/create-checkout-session", async (req, res) => {
+  try {
+    const { amount, currency = "eur" } = req.body;
+    
+    // Ensure amount is an integer within 1 to 20 euros
+    const parsedAmount = Math.max(1, Math.min(20, Math.round(Number(amount || 5))));
+    
+    const key = process.env.STRIPE_SECRET_KEY;
+    if (!key) {
+      // Return a simulated redirect for developers / testers if they haven't configured their user secrets yet
+      console.log(`[Stripe Checkout] STRIPE_SECRET_KEY not set. Simulating checkout session for amount: ${parsedAmount} EUR`);
+      return res.json({ 
+        id: "simulated_session_id", 
+        url: `${req.headers.referer || req.headers.origin || ""}?payment_status=success&amount=${parsedAmount}&simulated=true`
+      });
+    }
+
+    const stripe = new Stripe(key, {
+      apiVersion: "2025-01-27.acacia" as any
+    });
+
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ["card"],
+      line_items: [
+        {
+          price_data: {
+            currency: currency,
+            product_data: {
+              name: "Buy me a coffee — Support balanceAI",
+              description: "Support our physical liberation and healthy nutrition tracking journey!",
+            },
+            unit_amount: parsedAmount * 100, // unit amount in cents
+          },
+          quantity: 1,
+        },
+      ],
+      mode: "payment",
+      success_url: `${req.headers.referer || req.headers.origin || ""}?payment_status=success&amount=${parsedAmount}`,
+      cancel_url: `${req.headers.referer || req.headers.origin || ""}?payment_status=cancelled`,
+    });
+
+    res.json({ id: session.id, url: session.url });
+  } catch (error: any) {
+    console.error("Error creating Stripe Checkout session:", error);
+    res.status(500).json({ error: error.message || "Internal Stripe Session Error" });
+  }
+});
 
 // API Route for analyzing a meal
 app.post("/api/analyze-meal", async (req, res) => {
