@@ -37,7 +37,8 @@ import {
   Eye,
   EyeOff,
   ExternalLink,
-  ShieldCheck
+  ShieldCheck,
+  Share2
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { MealLog, MealAnalysisResponse } from "./types";
@@ -46,9 +47,10 @@ import MacroBars from "./components/MacroBars";
 import CalorieChart from "./components/CalorieChart";
 import MealCard from "./components/MealCard";
 import { calculateTargets, Lifestyle } from "./lib/nutrition";
-import { auth, db, googleProvider } from "./firebase";
-import { signInWithPopup, signOut, onAuthStateChanged } from "firebase/auth";
-import { collection, doc, setDoc, deleteDoc, getDocs, query, writeBatch } from "firebase/firestore";
+import { auth, db, googleProvider, storage } from "./firebase";
+import { signInWithPopup, signOut, onAuthStateChanged, reauthenticateWithPopup, deleteUser } from "firebase/auth";
+import { collection, doc, setDoc, deleteDoc, getDocs, query, writeBatch, deleteField, updateDoc } from "firebase/firestore";
+import { ref, uploadString, getDownloadURL, deleteObject } from "firebase/storage";
 
 enum OperationType {
   CREATE = 'create',
@@ -378,6 +380,73 @@ export default function App() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isInstallable, setIsInstallable] = useState(false);
 
+  // 18+ Age Verification & Onboarding States
+  const [ageVerified18Plus, setAgeVerified18Plus] = useState<boolean>(() => {
+    try {
+      const cached = localStorage.getItem("mindful_flow_age_verification");
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        return Boolean(parsed?.ageVerified18Plus);
+      }
+    } catch (_) {}
+    return false;
+  });
+  const [ageVerifiedAt, setAgeVerifiedAt] = useState<string | null>(() => {
+    try {
+      const cached = localStorage.getItem("mindful_flow_age_verification");
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        return parsed?.ageVerifiedAt || null;
+      }
+    } catch (_) {}
+    return null;
+  });
+  const [agePolicyVersion, setAgePolicyVersion] = useState<string>(() => {
+    try {
+      const cached = localStorage.getItem("mindful_flow_age_verification");
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        return parsed?.agePolicyVersion || "1.0";
+      }
+    } catch (_) {}
+    return "1.0";
+  });
+  const [ageCheckboxChecked, setAgeCheckboxChecked] = useState<boolean>(false);
+  const [showOnboardingModal, setShowOnboardingModal] = useState<boolean>(false);
+
+  // Gemini Data Processing Consent States
+  const [geminiConsentGranted, setGeminiConsentGranted] = useState<boolean>(() => {
+    try {
+      const cached = localStorage.getItem("mindful_flow_gemini_consent");
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        return Boolean(parsed?.geminiConsentGranted);
+      }
+    } catch (_) {}
+    return false;
+  });
+  const [geminiConsentTimestamp, setGeminiConsentTimestamp] = useState<string | null>(() => {
+    try {
+      const cached = localStorage.getItem("mindful_flow_gemini_consent");
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        return parsed?.geminiConsentTimestamp || null;
+      }
+    } catch (_) {}
+    return null;
+  });
+  const [geminiConsentVersion, setGeminiConsentVersion] = useState<string>(() => {
+    try {
+      const cached = localStorage.getItem("mindful_flow_gemini_consent");
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        return parsed?.geminiConsentVersion || "1.0";
+      }
+    } catch (_) {}
+    return "1.0";
+  });
+  const [geminiConsentCheckboxChecked, setGeminiConsentCheckboxChecked] = useState<boolean>(false);
+
   // User custom Gemini API key state (stored strictly in local environment / localStorage)
   const [customApiKey, setCustomApiKey] = useState<string>(() => {
     return localStorage.getItem("mindful_flow_custom_api_key") || "";
@@ -386,41 +455,212 @@ export default function App() {
   const [showApiKey, setShowApiKey] = useState<boolean>(false);
   const [apiKeySaveNotice, setApiKeySaveNotice] = useState<string | null>(null);
 
-  // Helper to count free analyses used today (when no custom key provided)
-  const getFreeAnalysesTodayCount = (): number => {
-    try {
-      const todayStr = new Date().toDateString();
-      const stored = localStorage.getItem("mindful_flow_free_analyses");
-      if (!stored) return 0;
-      const data: string[] = JSON.parse(stored);
-      if (Array.isArray(data)) {
-        return data.filter(d => d === todayStr).length;
-      }
-    } catch (_) {}
-    return 0;
+  // Meal Photo Sharing and Privacy Modal state
+  const [sharingLog, setSharingLog] = useState<MealLog | null>(null);
+  const [shareNotice, setShareNotice] = useState<string | null>(null);
+
+  const getShareText = (log: MealLog): string => {
+    return `🥗 ${log.name}\n🔥 ${log.calories} kcal | 🥩 ${log.protein}g Protein | 🌾 ${log.carbs}g Carbs | 🥑 ${log.fat}g Fat\nLogged with Balavie`;
   };
 
-  // Helper to record a free analysis usage
-  const recordFreeAnalysisUsed = () => {
+  const handleNativeShare = async () => {
+    if (!sharingLog) return;
+    const shareText = getShareText(sharingLog);
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `Balavie Meal: ${sharingLog.name}`,
+          text: shareText
+        });
+        setShareNotice("Shared successfully!");
+        setTimeout(() => setShareNotice(null), 3000);
+      } catch (e: any) {
+        if (e.name !== 'AbortError') {
+          handleCopyShareSummary();
+        }
+      }
+    } else {
+      handleCopyShareSummary();
+    }
+  };
+
+  const handleCopyShareSummary = () => {
+    if (!sharingLog) return;
+    const shareText = getShareText(sharingLog);
+    navigator.clipboard.writeText(shareText).then(() => {
+      setShareNotice("Copied meal summary to clipboard!");
+      setTimeout(() => setShareNotice(null), 3000);
+    }).catch(() => {
+      setShareNotice("Unable to copy to clipboard.");
+    });
+  };
+
+  // Delete Account Modal and process state
+  const [showDeleteAccountModal, setShowDeleteAccountModal] = useState<boolean>(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState<boolean>(false);
+  const [deleteAccountError, setDeleteAccountError] = useState<string | null>(null);
+  const [deleteAccountSuccess, setDeleteAccountSuccess] = useState<boolean>(false);
+
+  const executeAccountDeletion = async () => {
+    setIsDeletingAccount(true);
+    setDeleteAccountError(null);
+
     try {
-      const todayStr = new Date().toDateString();
-      const stored = localStorage.getItem("mindful_flow_free_analyses");
-      let data: string[] = stored ? JSON.parse(stored) : [];
-      if (!Array.isArray(data)) data = [];
-      const twoWeeksAgo = Date.now() - 14 * 86400000;
-      data = data.filter(d => {
-        try { return new Date(d).getTime() > twoWeeksAgo; } catch (_) { return false; }
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        throw new Error("No active signed-in user found. Please sign in first.");
+      }
+
+      // Force refresh the ID token
+      let idToken = await currentUser.getIdToken(true);
+
+      // Call server endpoint /api/delete-account
+      let response = await fetch("/api/delete-account", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${idToken}`
+        },
+        body: JSON.stringify({ idToken })
       });
-      data.push(todayStr);
-      localStorage.setItem("mindful_flow_free_analyses", JSON.stringify(data));
-    } catch (_) {}
+
+      let resData = await response.json().catch(() => ({}));
+
+      // Handle token freshness / reauthentication requirement if necessary
+      if (response.status === 401 && (resData.error === "auth/requires-recent-login" || resData.error?.includes("recent"))) {
+        try {
+          console.log("Reauthenticating user before account deletion...");
+          await reauthenticateWithPopup(currentUser, googleProvider);
+          idToken = await currentUser.getIdToken(true);
+
+          response = await fetch("/api/delete-account", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${idToken}`
+            },
+            body: JSON.stringify({ idToken })
+          });
+          resData = await response.json().catch(() => ({}));
+        } catch (reauthErr: any) {
+          throw new Error("Reauthentication failed or was canceled. Recent authentication is required before account deletion can proceed.");
+        }
+      }
+
+      if (!response.ok || resData.status !== "success" || !resData.authDeleted) {
+        throw new Error(resData.error || resData.message || "Account deletion failed on server. Please try again.");
+      }
+
+      // Client-side cleanup double verification
+      try {
+        if (auth.currentUser) {
+          await deleteUser(auth.currentUser).catch(() => {});
+        }
+      } catch (_) {}
+
+      try {
+        await signOut(auth).catch(() => {});
+      } catch (_) {}
+
+      // Clear local Balavie data after cloud deletion succeeds
+      localStorage.clear();
+      setPastLogs([]);
+      setUser(null);
+      setCustomApiKey("");
+      setTempApiKeyInput("");
+      setSyncStatus("offline");
+      setDeleteAccountSuccess(true);
+      setIsDeletingAccount(false);
+
+      // Auto-close modal after brief success presentation
+      setTimeout(() => {
+        setShowDeleteAccountModal(false);
+        setDeleteAccountSuccess(false);
+      }, 2500);
+
+    } catch (err: any) {
+      console.error("Account deletion failed:", err);
+      setDeleteAccountError(err.message || "An unexpected error occurred during account deletion.");
+      setIsDeletingAccount(false);
+    }
+  };
+
+  const handleConfirmAgeVerification = async () => {
+    if (!ageCheckboxChecked) return;
+    const nowIso = new Date().toISOString();
+    const versionStr = "1.0";
+
+    setAgeVerified18Plus(true);
+    setAgeVerifiedAt(nowIso);
+    setAgePolicyVersion(versionStr);
+
+    const record = {
+      ageVerified18Plus: true,
+      ageVerifiedAt: nowIso,
+      agePolicyVersion: versionStr
+    };
+    localStorage.setItem("mindful_flow_age_verification", JSON.stringify(record));
+
+    if (user) {
+      try {
+        await setDoc(doc(db, "users", user.uid, "profile", "settings"), {
+          ageVerified18Plus: true,
+          ageVerifiedAt: nowIso,
+          agePolicyVersion: versionStr
+        }, { merge: true });
+      } catch (e) {
+        console.warn("Could not sync age verification to Firestore:", e);
+      }
+    }
+
+    setAgeCheckboxChecked(false);
+    if (geminiConsentGranted) {
+      setShowOnboardingModal(false);
+    }
+  };
+
+  const handleConfirmGeminiConsent = async () => {
+    if (!geminiConsentCheckboxChecked) return;
+    const nowIso = new Date().toISOString();
+    const versionStr = "1.0";
+
+    setGeminiConsentGranted(true);
+    setGeminiConsentTimestamp(nowIso);
+    setGeminiConsentVersion(versionStr);
+
+    const record = {
+      geminiConsentGranted: true,
+      geminiConsentTimestamp: nowIso,
+      geminiConsentVersion: versionStr
+    };
+    localStorage.setItem("mindful_flow_gemini_consent", JSON.stringify(record));
+
+    if (user) {
+      try {
+        await setDoc(doc(db, "users", user.uid, "profile", "settings"), {
+          geminiConsentGranted: true,
+          geminiConsentTimestamp: nowIso,
+          geminiConsentVersion: versionStr
+        }, { merge: true });
+      } catch (e) {
+        console.warn("Could not sync Gemini consent to Firestore:", e);
+      }
+    }
+
+    setShowOnboardingModal(false);
+    setGeminiConsentCheckboxChecked(false);
   };
 
   const handleSaveApiKey = () => {
+    if (!ageVerified18Plus || !geminiConsentGranted) {
+      setApiKeySaveNotice("18+ verification and Gemini consent are required before saving an API key.");
+      setShowOnboardingModal(true);
+      return;
+    }
     const trimmed = tempApiKeyInput.trim();
     setCustomApiKey(trimmed);
     localStorage.setItem("mindful_flow_custom_api_key", trimmed);
-    setApiKeySaveNotice("API Key saved securely in local storage! Unlimited meal analyses unlocked.");
+    setApiKeySaveNotice("API Key saved securely in local storage! AI meal analysis enabled.");
     setTimeout(() => setApiKeySaveNotice(null), 4000);
   };
 
@@ -428,7 +668,7 @@ export default function App() {
     setCustomApiKey("");
     setTempApiKeyInput("");
     localStorage.removeItem("mindful_flow_custom_api_key");
-    setApiKeySaveNotice("Custom API Key removed. Reverted to default limit (1 analysis / day).");
+    setApiKeySaveNotice("API Key removed. Add your Gemini API key in Settings to use AI meal analysis.");
     setTimeout(() => setApiKeySaveNotice(null), 4000);
   };
 
@@ -540,6 +780,28 @@ export default function App() {
                 setHasDonated(Boolean(dat.hasDonated));
                 localStorage.setItem("mindful_flow_has_donated", String(dat.hasDonated));
               }
+              if (dat.ageVerified18Plus !== undefined) {
+                const isVerified = Boolean(dat.ageVerified18Plus);
+                setAgeVerified18Plus(isVerified);
+                if (dat.ageVerifiedAt) setAgeVerifiedAt(String(dat.ageVerifiedAt));
+                if (dat.agePolicyVersion) setAgePolicyVersion(String(dat.agePolicyVersion));
+                localStorage.setItem("mindful_flow_age_verification", JSON.stringify({
+                  ageVerified18Plus: isVerified,
+                  ageVerifiedAt: dat.ageVerifiedAt || null,
+                  agePolicyVersion: dat.agePolicyVersion || "1.0"
+                }));
+              }
+              if (dat.geminiConsentGranted !== undefined) {
+                const isConsent = Boolean(dat.geminiConsentGranted);
+                setGeminiConsentGranted(isConsent);
+                if (dat.geminiConsentTimestamp) setGeminiConsentTimestamp(String(dat.geminiConsentTimestamp));
+                if (dat.geminiConsentVersion) setGeminiConsentVersion(String(dat.geminiConsentVersion));
+                localStorage.setItem("mindful_flow_gemini_consent", JSON.stringify({
+                  geminiConsentGranted: isConsent,
+                  geminiConsentTimestamp: dat.geminiConsentTimestamp || null,
+                  geminiConsentVersion: dat.geminiConsentVersion || "1.0"
+                }));
+              }
             }
           });
           setProfileFetched(true);
@@ -548,9 +810,39 @@ export default function App() {
           const q = query(collection(db, "users", user.uid, "logs"));
           const logsSnap = await getDocs(q);
           const logsList: MealLog[] = [];
-          logsSnap.forEach((doc) => {
-            logsList.push({ id: doc.id, ...doc.data() } as MealLog);
-          });
+          const nowMs = Date.now();
+
+          for (const docSnap of logsSnap.docs) {
+            const logData = { id: docSnap.id, ...docSnap.data() } as MealLog;
+
+            // Automatic deletion after 6 months: check if photo is 6 months old
+            const isExpired = logData.autoDeleteAt ? (new Date(logData.autoDeleteAt).getTime() <= nowMs) : false;
+            if (isExpired && (logData.photoUrl || logData.storagePath || logData.image)) {
+              // Delete image from Firebase Storage safely
+              if (logData.storagePath) {
+                deleteObject(ref(storage, logData.storagePath)).catch(() => {});
+              }
+              // Remove image references from Firestore
+              try {
+                await updateDoc(doc(db, "users", user.uid, "logs", docSnap.id), {
+                  photoUrl: deleteField(),
+                  storagePath: deleteField(),
+                  image: deleteField(),
+                  uploadedAt: deleteField(),
+                  autoDeleteAt: deleteField()
+                });
+              } catch (_) {}
+
+              // Keep the remaining meal-history record intact, strip photo fields from local log object
+              delete logData.photoUrl;
+              delete logData.storagePath;
+              delete logData.image;
+              delete logData.uploadedAt;
+              delete logData.autoDeleteAt;
+            }
+
+            logsList.push(logData);
+          }
 
           const mergedLogs = [...logsList];
           initialUserLogs.forEach(localLog => {
@@ -649,6 +941,18 @@ export default function App() {
 
   // Submit to backend
   const submitAnalyzeMeal = async (answersOverride?: Record<string, string>) => {
+    if (!ageVerified18Plus) {
+      setErrorMessage("You must confirm you are at least 18 years old to use Balavie and Gemini AI features.");
+      setShowOnboardingModal(true);
+      return;
+    }
+
+    if (!geminiConsentGranted) {
+      setErrorMessage("You must grant Gemini data-processing consent before analyzing meals.");
+      setShowOnboardingModal(true);
+      return;
+    }
+
     if (!textInput.trim() && !imageInput) {
       setErrorMessage("Please type what you ate or snap a picture of your plate.");
       return;
@@ -656,13 +960,8 @@ export default function App() {
 
     const hasCustomKey = customApiKey && customApiKey.trim().length > 0;
     if (!hasCustomKey) {
-      const freeUsedToday = getFreeAnalysesTodayCount();
-      if (freeUsedToday >= 1) {
-        setErrorMessage(
-          "Free daily limit reached (1/1 for today). Add your own free Gemini API key in Settings for unlimited meal analyses!"
-        );
-        return;
-      }
+      setErrorMessage("Add your Gemini API key in Settings to use AI meal analysis.");
+      return;
     }
 
     setIsLoading(true);
@@ -731,15 +1030,13 @@ export default function App() {
       });
 
       if (!res.ok) {
-        throw new Error("Virtual dietitian is busy. Please retry in a few seconds.");
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || "Add your Gemini API key in Settings to use AI meal analysis.");
       }
 
       const data: MealAnalysisResponse = await res.json();
-
-      if (data.status === "success" || data.status === "clarification_needed") {
-        if (!hasCustomKey) {
-          recordFreeAnalysisUsed();
-        }
+      if ((data as any).error) {
+        throw new Error((data as any).error);
       }
       
       if (data.status === "success") {
@@ -794,8 +1091,27 @@ export default function App() {
 
           const nameToUse = isLearned && matchedPrevLog ? matchedPrevLog.name : data.mealAnalysis.name;
 
+          const newLogId = Math.random().toString(36).substring(2, 9) + Date.now().toString(36);
+          const uploadDateIso = new Date().toISOString();
+          const autoDeleteDateIso = new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString();
+
+          let photoUrlToUse: string | undefined = undefined;
+          let storagePathToUse: string | undefined = undefined;
+
+          if (imageInput && user) {
+            try {
+              const storagePath = `users/${user.uid}/meal_photos/${newLogId}.jpg`;
+              const imageRef = ref(storage, storagePath);
+              await uploadString(imageRef, imageInput, "data_url");
+              photoUrlToUse = await getDownloadURL(imageRef);
+              storagePathToUse = storagePath;
+            } catch (err) {
+              console.warn("Could not upload meal photo to Firebase Storage:", err);
+            }
+          }
+
           const newLog: MealLog = {
-            id: Math.random().toString(36).substring(2, 9) + Date.now().toString(36),
+            id: newLogId,
             timestamp: new Date().toLocaleString("en-US", {
               month: "short",
               day: "numeric",
@@ -804,6 +1120,11 @@ export default function App() {
             }),
             name: nameToUse,
             image: imageInput || undefined,
+            photoUrl: photoUrlToUse,
+            storagePath: storagePathToUse,
+            ownerUid: user ? user.uid : undefined,
+            uploadedAt: imageInput ? uploadDateIso : undefined,
+            autoDeleteAt: imageInput ? autoDeleteDateIso : undefined,
             calories: finalCalories,
             protein: finalProtein,
             carbs: finalCarbs,
@@ -868,7 +1189,9 @@ export default function App() {
       } catch(_) {}
 
       try {
-        await setDoc(doc(db, "users", user.uid, "logs", logToSave.id), cleanForFirestore(logToSave));
+        const firestoreData = cleanForFirestore(logToSave);
+        delete firestoreData.image; // Never store Base64 image data inside Firestore documents!
+        await setDoc(doc(db, "users", user.uid, "logs", logToSave.id), firestoreData);
         setSyncStatus("synced");
       } catch (e) {
         setSyncStatus("offline");
@@ -956,6 +1279,12 @@ export default function App() {
 
   const deleteHistoryLog = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    
+    const targetLog = pastLogs.find(l => l.id === id);
+    if (targetLog?.storagePath && user) {
+      deleteObject(ref(storage, targetLog.storagePath)).catch(() => {});
+    }
+
     setSyncStatus("syncing");
     setPastLogs(prev => prev.filter(item => item.id !== id));
 
@@ -991,6 +1320,11 @@ export default function App() {
     setSyncStatus("syncing");
     if (user) {
       try {
+        for (const log of pastLogs) {
+          if (log.storagePath) {
+            deleteObject(ref(storage, log.storagePath)).catch(() => {});
+          }
+        }
         const q = query(collection(db, "users", user.uid, "logs"));
         const snapshot = await getDocs(q);
         const batch = writeBatch(db);
@@ -1027,7 +1361,7 @@ export default function App() {
         }
       }
 
-      const bmcUrl = `https://buymeacoffee.com/balancefit?coffees=1`;
+      const bmcUrl = `https://buymeacoffee.com/balavie?coffees=1`;
       window.open(bmcUrl, "_blank", "noopener,noreferrer");
     } catch (err: any) {
       setErrorMessage(err.message || "Failed to proceed to Buy Me a Coffee page.");
@@ -1532,6 +1866,7 @@ export default function App() {
                     onDelete={deleteHistoryLog}
                     onEdit={startEditingLog}
                     onCheer={handleCheer}
+                    onShare={setSharingLog}
                     cheersCount={cheers[log.id] || 0}
                     isDark={isDark}
                   />
@@ -1769,6 +2104,7 @@ export default function App() {
                         onDelete={deleteHistoryLog}
                         onEdit={startEditingLog}
                         onCheer={handleCheer}
+                        onShare={setSharingLog}
                         cheersCount={cheers[log.id] || 0}
                         isDark={isDark}
                       />
@@ -2028,22 +2364,22 @@ export default function App() {
                 <div className="flex items-center gap-2">
                   <Key className="w-4 h-4 text-[#1CA35A] dark:text-[#3ECF8E]" />
                   <span className={`font-mono text-[9px] uppercase font-bold tracking-[1.6px] ${isDark ? "text-[#A8A49C]" : "text-[#5D6B60]"}`}>
-                    GEMINI API KEY (UNLIMITED ACCESS)
+                    GEMINI API KEY (BYOK MODE)
                   </span>
                 </div>
                 {customApiKey ? (
                   <span className="py-0.5 px-2 rounded-full font-mono text-[8.5px] font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
-                    UNLIMITED
+                    KEY SAVED
                   </span>
                 ) : (
                   <span className="py-0.5 px-2 rounded-full font-mono text-[8.5px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20">
-                    1 FREE / DAY
+                    KEY REQUIRED
                   </span>
                 )}
               </div>
 
               <p className={`text-xs leading-relaxed ${isDark ? 'text-[#A8A49C]' : 'text-[#5D6B60]'}`}>
-                To use this app as a free resource forever without usage limits, add your personal Gemini API key below.
+                Balavie operates in Bring Your Own Key mode. Enter your personal Gemini API key below to analyze meals.
               </p>
 
               {/* Notice Toast */}
@@ -2101,16 +2437,24 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Get Key Link */}
-              <div className="pt-2 border-t border-dashed border-[#2C2A27]/20 dark:border-[#2C2A27]/60 flex items-center justify-between text-[10.5px]">
+              {/* Get your Gemini API key help section */}
+              <div className={`p-3.5 rounded-xl border border-dashed space-y-2.5 transition-colors ${
+                isDark ? 'bg-[#141312]/60 border-[#2C2A27]' : 'bg-[#F8FAF7] border-[#E4EAE2]'
+              }`}>
+                <h4 className={`text-xs font-bold font-display ${isDark ? 'text-[#F5F2EC]' : 'text-[#15241B]'}`}>
+                  Get your Gemini API key
+                </h4>
+                <p className={`text-[11.5px] leading-relaxed ${isDark ? 'text-[#A8A49C]' : 'text-[#5D6B60]'}`}>
+                  Balavie requires your own Gemini API key for AI meal analysis. Create and manage your key through Google
+                </p>
                 <a
                   href="https://aistudio.google.com/app/apikey"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="font-mono font-bold text-[#1CA35A] dark:text-[#3ECF8E] hover:underline flex items-center gap-1"
+                  className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-lg font-mono text-xs font-bold bg-[#1CA35A]/10 text-[#1CA35A] dark:bg-[#3ECF8E]/10 dark:text-[#3ECF8E] border border-[#1CA35A]/20 dark:border-[#3ECF8E]/20 hover:bg-[#1CA35A]/20 dark:hover:bg-[#3ECF8E]/20 transition-all no-underline"
                 >
-                  <span>🔑 Generate free Gemini API key</span>
-                  <ExternalLink className="w-3 h-3" />
+                  <span>Open Google AI Studio</span>
+                  <ExternalLink className="w-3.5 h-3.5 shrink-0" />
                 </a>
               </div>
 
@@ -2121,17 +2465,17 @@ export default function App() {
               </div>
             </div>
 
-            {/* Buy coffee Stripe Donation Card */}
+            {/* Support Balavie Donation Card */}
             <div className={`border rounded-[20px] p-5 shadow-sm text-left space-y-4 transition-colors duration-300 ${isDark ? 'bg-[#1E1C1A] border-[#2C2A27]' : 'bg-white border-[#E4EAE2]'}`}>
               <div className="flex items-center gap-2">
                 <Coffee className="w-4 h-4 text-[#FF7A1A] dark:text-[#FF9440]" />
                 <span className={`font-mono text-[9px] uppercase font-bold tracking-[1.6px] text-[#FF7A1A] dark:text-[#FF9440]`}>
-                  BUY THE DEVELOPER A COFFEE
+                  SUPPORT BALAVIE
                 </span>
               </div>
 
               <p className={`text-xs leading-relaxed ${isDark ? 'text-[#A8A49C]' : 'text-[#5D6B60]'}`}>
-                If you enjoy using this app, please buy the developer a coffee to support continued health innovation and keep using the app forever!
+                Balavie is free and open source. Optional donations support the project
               </p>
 
               <div className="pt-1">
@@ -2145,7 +2489,92 @@ export default function App() {
                   ) : (
                     <Coffee className="w-4 h-4" />
                   )}
-                  <span>BUY COFFEE</span>
+                  <span>SUPPORT BALAVIE</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Legal, Privacy & Account Card */}
+            <div className={`border rounded-[20px] p-4 shadow-sm text-left space-y-3 transition-colors duration-300 ${isDark ? 'bg-[#1E1C1A] border-[#2C2A27]' : 'bg-white border-[#E4EAE2]'}`}>
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-[#1CA35A] dark:text-[#3ECF8E]" />
+                <span className={`font-mono text-[9px] uppercase font-bold tracking-[1.6px] ${isDark ? 'text-[#3ECF8E]' : 'text-[#1CA35A]'}`}>
+                  LEGAL, PRIVACY & ACCOUNT
+                </span>
+              </div>
+
+              {/* Compact Inline Text Links */}
+              <div className="space-y-1.5 pt-0.5">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-mono">
+                  <a
+                    href="https://himanshumakhija9.github.io/Balavie/privacy.html"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[#1CA35A] dark:text-[#3ECF8E] hover:underline py-0.5 inline-flex items-center gap-1"
+                  >
+                    <span>Privacy Policy</span>
+                  </a>
+                  <span className="text-gray-400 dark:text-gray-600">·</span>
+                  <a
+                    href="https://himanshumakhija9.github.io/Balavie/health-disclaimer.html"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[#1CA35A] dark:text-[#3ECF8E] hover:underline py-0.5 inline-flex items-center gap-1"
+                  >
+                    <span>Health Disclaimer</span>
+                  </a>
+                  <span className="text-gray-400 dark:text-gray-600">·</span>
+                  <a
+                    href="https://himanshumakhija9.github.io/Balavie/terms.html"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[#1CA35A] dark:text-[#3ECF8E] hover:underline py-0.5 inline-flex items-center gap-1"
+                  >
+                    <span>Terms of Use</span>
+                  </a>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-mono">
+                  <a
+                    href="https://himanshumakhija9.github.io/Balavie/data-deletion.html"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[#1CA35A] dark:text-[#3ECF8E] hover:underline py-0.5 inline-flex items-center gap-1"
+                  >
+                    <span>Account & Data Deletion</span>
+                  </a>
+                  <span className="text-gray-400 dark:text-gray-600">·</span>
+                  <a
+                    href="https://himanshumakhija9.github.io/Balavie/support.html"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[#1CA35A] dark:text-[#3ECF8E] hover:underline py-0.5 inline-flex items-center gap-1"
+                  >
+                    <span>Support</span>
+                  </a>
+                  <span className="text-gray-400 dark:text-gray-600">·</span>
+                  <a
+                    href="https://github.com/himanshumakhija9/Balavie"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[#1CA35A] dark:text-[#3ECF8E] hover:underline py-0.5 inline-flex items-center gap-1"
+                  >
+                    <span>Source Code</span>
+                  </a>
+                </div>
+              </div>
+
+              <div className="pt-1">
+                <button
+                  onClick={() => {
+                    setDeleteAccountError(null);
+                    setDeleteAccountSuccess(false);
+                    setShowDeleteAccountModal(true);
+                  }}
+                  className="w-full py-2.5 rounded-xl font-display font-extrabold uppercase text-xs tracking-wider text-red-500 border border-red-500/20 bg-red-500/5 hover:bg-red-500/10 cursor-pointer transition-all flex items-center justify-center gap-1.5"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>DELETE ACCOUNT & CLOUD DATA</span>
                 </button>
               </div>
             </div>
@@ -2205,6 +2634,155 @@ export default function App() {
         </button>
       </nav>
 
+      {/* 18+ & Gemini Consent Onboarding Modal */}
+      <AnimatePresence>
+        {(!authChecking && (!ageVerified18Plus || !geminiConsentGranted || showOnboardingModal)) && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className={`w-full max-w-md max-h-[90vh] overflow-y-auto rounded-[24px] p-6 shadow-2xl border text-left space-y-5 ${
+                isDark ? "bg-[#1E1C1A] border-[#2C2A27] text-[#F5F2EC]" : "bg-white border-[#E4EAE2] text-[#15241B]"
+              }`}
+            >
+              {!ageVerified18Plus ? (
+                /* Step 1: 18+ Confirmation */
+                <>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <div className="p-2 rounded-xl bg-[#1CA35A]/10 text-[#1CA35A] dark:bg-[#3ECF8E]/10 dark:text-[#3ECF8E]">
+                        <ShieldCheck className="w-5 h-5" />
+                      </div>
+                      <span className="font-mono text-[10px] uppercase font-bold tracking-[1.6px] text-[#1CA35A] dark:text-[#3ECF8E]">
+                        ONBOARDING & ELIGIBILITY (1/2)
+                      </span>
+                    </div>
+
+                    <h3 className="text-lg font-display font-bold tracking-tight">
+                      Welcome to Balavie
+                    </h3>
+
+                    <p className={`text-xs leading-relaxed ${isDark ? 'text-[#A8A49C]' : 'text-[#5D6B60]'}`}>
+                      Balavie and the Gemini API features are intended only for users aged 18 and over.
+                    </p>
+                  </div>
+
+                  <div className="space-y-3">
+                    <label className={`flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition-all ${
+                      isDark
+                        ? ageCheckboxChecked ? 'bg-[#1CA35A]/10 border-[#3ECF8E]/40' : 'bg-[#141312] border-[#2C2A27] hover:border-[#3ECF8E]/30'
+                        : ageCheckboxChecked ? 'bg-[#1CA35A]/10 border-[#1CA35A]/40' : 'bg-[#F8FAF7] border-[#E4EAE2] hover:border-[#1CA35A]/30'
+                    }`}>
+                      <input
+                        type="checkbox"
+                        checked={ageCheckboxChecked}
+                        onChange={(e) => setAgeCheckboxChecked(e.target.checked)}
+                        className="mt-0.5 w-4 h-4 rounded text-[#1CA35A] dark:text-[#3ECF8E] focus:ring-[#1CA35A] cursor-pointer shrink-0"
+                      />
+                      <span className={`text-xs font-medium leading-snug ${isDark ? 'text-[#F5F2EC]' : 'text-[#15241B]'}`}>
+                        I confirm that I am at least 18 years old.
+                      </span>
+                    </label>
+
+                    <button
+                      onClick={handleConfirmAgeVerification}
+                      disabled={!ageCheckboxChecked}
+                      className={`w-full py-3.5 rounded-xl font-display font-bold text-xs uppercase tracking-wider border-0 transition-all cursor-pointer ${
+                        ageCheckboxChecked
+                          ? 'bg-[#1CA35A] dark:bg-[#3ECF8E] text-white hover:opacity-95 shadow-md active:scale-[0.98]'
+                          : 'bg-gray-300 dark:bg-gray-800 text-gray-500 cursor-not-allowed opacity-60'
+                      }`}
+                    >
+                      Continue to Gemini Consent
+                    </button>
+                  </div>
+                </>
+              ) : (
+                /* Step 2: Gemini Data Processing Consent */
+                <>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <div className="p-2 rounded-xl bg-[#1CA35A]/10 text-[#1CA35A] dark:bg-[#3ECF8E]/10 dark:text-[#3ECF8E]">
+                        <Sparkles className="w-5 h-5" />
+                      </div>
+                      <span className="font-mono text-[10px] uppercase font-bold tracking-[1.6px] text-[#1CA35A] dark:text-[#3ECF8E]">
+                        GEMINI DATA PROCESSING CONSENT
+                      </span>
+                    </div>
+
+                    <h3 className="text-lg font-display font-bold tracking-tight">
+                      Gemini Data Processing Consent
+                    </h3>
+
+                    <ul className={`text-xs leading-relaxed space-y-2 list-disc pl-4 ${isDark ? 'text-[#A8A49C]' : 'text-[#5D6B60]'}`}>
+                      <li>Balavie sends meal descriptions, selected meal images, and relevant dietary settings to Google’s Gemini API only when you request meal analysis.</li>
+                      <li>Gemini results are approximate and may be inaccurate.</li>
+                      <li>Results are not medical advice, diagnosis, or treatment.</li>
+                      <li>Google processes submitted information under the terms applicable to your Gemini API key.</li>
+                      <li>Do not submit confidential information or images that identify another person.</li>
+                      <li>Meal photos are saved privately with your Balavie meal history so you can review or share them later. Photos are automatically deleted after 6 months. You can delete a photo or meal earlier at any time. Balavie never shares a photo automatically.</li>
+                    </ul>
+
+                    <div className="pt-2 flex flex-wrap items-center gap-2 text-xs">
+                      <a
+                        href="https://himanshumakhija9.github.io/Balavie/privacy.html"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 font-medium text-[#1CA35A] dark:text-[#3ECF8E] hover:underline"
+                      >
+                        <span>Privacy Policy</span>
+                        <ExternalLink className="w-3 h-3 shrink-0" />
+                      </a>
+                      <span className="text-gray-400">•</span>
+                      <a
+                        href="https://himanshumakhija9.github.io/Balavie/health-disclaimer.html"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 font-medium text-[#1CA35A] dark:text-[#3ECF8E] hover:underline"
+                      >
+                        <span>Health Disclaimer</span>
+                        <ExternalLink className="w-3 h-3 shrink-0" />
+                      </a>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3 pt-1">
+                    <label className={`flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition-all ${
+                      isDark
+                        ? geminiConsentCheckboxChecked ? 'bg-[#1CA35A]/10 border-[#3ECF8E]/40' : 'bg-[#141312] border-[#2C2A27] hover:border-[#3ECF8E]/30'
+                        : geminiConsentCheckboxChecked ? 'bg-[#1CA35A]/10 border-[#1CA35A]/40' : 'bg-[#F8FAF7] border-[#E4EAE2] hover:border-[#1CA35A]/30'
+                    }`}>
+                      <input
+                        type="checkbox"
+                        checked={geminiConsentCheckboxChecked}
+                        onChange={(e) => setGeminiConsentCheckboxChecked(e.target.checked)}
+                        className="mt-0.5 w-4 h-4 rounded text-[#1CA35A] dark:text-[#3ECF8E] focus:ring-[#1CA35A] cursor-pointer shrink-0"
+                      />
+                      <span className={`text-xs font-medium leading-snug ${isDark ? 'text-[#F5F2EC]' : 'text-[#15241B]'}`}>
+                        I consent to Balavie sending my meal descriptions, selected meal images, and relevant dietary settings to Google’s Gemini API when I explicitly request meal analysis.
+                      </span>
+                    </label>
+
+                    <button
+                      onClick={handleConfirmGeminiConsent}
+                      disabled={!geminiConsentCheckboxChecked}
+                      className={`w-full py-3.5 rounded-xl font-display font-bold text-xs uppercase tracking-wider border-0 transition-all cursor-pointer ${
+                        geminiConsentCheckboxChecked
+                          ? 'bg-[#1CA35A] dark:bg-[#3ECF8E] text-white hover:opacity-95 shadow-md active:scale-[0.98]'
+                          : 'bg-gray-300 dark:bg-gray-800 text-gray-500 cursor-not-allowed opacity-60'
+                      }`}
+                    >
+                      Complete Onboarding
+                    </button>
+                  </div>
+                </>
+              )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* Celebration donation success toast overlay */}
       <AnimatePresence>
         {donationSuccessMessage && (
@@ -2246,6 +2824,201 @@ export default function App() {
                   KEEP ACTIVE FOREVER
                 </button>
               </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Share Preview Modal Overlay */}
+      <AnimatePresence>
+        {sharingLog && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className={`w-full max-w-sm rounded-[20px] p-5 shadow-2xl border text-left space-y-4 ${
+                isDark ? "bg-[#1E1C1A] border-[#2C2A27] text-[#F5F2EC]" : "bg-white border-[#E4EAE2] text-[#15241B]"
+              }`}
+            >
+              <div className="flex justify-between items-center border-b pb-2.5 border-dashed border-[#2C2A27]/20 dark:border-[#2C2A27]/60">
+                <div className="flex items-center gap-2">
+                  <Share2 className="w-4 h-4 text-[#1CA35A] dark:text-[#3ECF8E]" />
+                  <span className="font-mono text-[10px] uppercase font-extrabold tracking-wider text-[#1CA35A] dark:text-[#3ECF8E]">
+                    PREVIEW & SHARE MEAL
+                  </span>
+                </div>
+                <button
+                  onClick={() => { setSharingLog(null); setShareNotice(null); }}
+                  className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-lg border-0 bg-transparent cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Photo Preview if present */}
+              {(sharingLog.photoUrl || sharingLog.image) && (
+                <div className="h-40 w-full rounded-xl overflow-hidden border border-[#2C2A27]/20 relative bg-black/10">
+                  <img
+                    src={sharingLog.photoUrl || sharingLog.image}
+                    alt={sharingLog.name}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              )}
+
+              {/* Meal Details Preview */}
+              <div className={`p-3.5 rounded-xl border space-y-2 text-xs ${
+                isDark ? 'bg-[#141312] border-[#2C2A27]' : 'bg-[#F8FAF7] border-[#E4EAE2]'
+              }`}>
+                <h4 className="font-extrabold text-sm capitalize">{sharingLog.name}</h4>
+                <p className="text-[10.5px] font-mono opacity-70">
+                  {sharingLog.timestamp} {sharingLog.mealPeriod ? `• ${sharingLog.mealPeriod.toUpperCase()}` : ""}
+                </p>
+                <div className="grid grid-cols-4 gap-1 text-center font-mono text-[10px] pt-2 border-t border-dashed border-gray-500/20">
+                  <div>
+                    <span className="block opacity-60 text-[8px]">CALORIES</span>
+                    <span className="font-bold">{sharingLog.calories} kcal</span>
+                  </div>
+                  <div>
+                    <span className="block opacity-60 text-[8px]">PROTEIN</span>
+                    <span className="font-bold">{sharingLog.protein}g</span>
+                  </div>
+                  <div>
+                    <span className="block opacity-60 text-[8px]">CARBS</span>
+                    <span className="font-bold">{sharingLog.carbs}g</span>
+                  </div>
+                  <div>
+                    <span className="block opacity-60 text-[8px]">FAT</span>
+                    <span className="font-bold">{sharingLog.fat}g</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Privacy Guarantee Note */}
+              <div className="flex items-center gap-1.5 text-[9.5px] font-mono opacity-70">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                <span>Balavie never shares photos automatically. Select share to send manually.</span>
+              </div>
+
+              {shareNotice && (
+                <div className="p-2 rounded-lg text-xs font-mono bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-center font-bold">
+                  {shareNotice}
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="space-y-2 pt-1">
+                <button
+                  onClick={handleNativeShare}
+                  className="w-full py-3 rounded-xl font-display font-extrabold uppercase text-xs tracking-wider bg-[#1CA35A] dark:bg-[#3ECF8E] text-white hover:opacity-95 shadow-md border-0 cursor-pointer transition-all flex items-center justify-center gap-2"
+                >
+                  <Share2 className="w-4 h-4" />
+                  <span>SHARE VIA DEVICE</span>
+                </button>
+                <button
+                  onClick={handleCopyShareSummary}
+                  className="w-full py-2.5 rounded-xl font-mono text-xs font-bold border border-[#1CA35A]/30 text-[#1CA35A] dark:text-[#3ECF8E] bg-transparent hover:bg-[#1CA35A]/5 cursor-pointer transition-all"
+                >
+                  COPY MEAL SUMMARY
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Account Deletion Confirmation Modal Overlay */}
+      <AnimatePresence>
+        {showDeleteAccountModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className={`w-full max-w-md rounded-[20px] p-6 shadow-2xl border text-left space-y-4 ${
+                isDark ? "bg-[#1E1C1A] border-[#2C2A27] text-[#F5F2EC]" : "bg-white border-[#E4EAE2] text-[#15241B]"
+              }`}
+            >
+              <div className="flex justify-between items-center border-b pb-3 border-dashed border-[#2C2A27]/20 dark:border-[#2C2A27]/60">
+                <div className="flex items-center gap-2">
+                  <Trash2 className="w-5 h-5 text-red-500" />
+                  <h3 className="font-display font-extrabold text-base tracking-wide text-red-500 uppercase">
+                    Delete Account & Cloud Data
+                  </h3>
+                </div>
+                {!isDeletingAccount && (
+                  <button
+                    onClick={() => setShowDeleteAccountModal(false)}
+                    className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-lg border-0 bg-transparent cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+
+              {deleteAccountSuccess ? (
+                <div className="space-y-3 py-2 text-center">
+                  <div className="w-12 h-12 rounded-full bg-emerald-500/10 text-emerald-500 flex items-center justify-center mx-auto">
+                    <ShieldCheck className="w-6 h-6" />
+                  </div>
+                  <h4 className="font-bold text-sm text-emerald-600 dark:text-emerald-400">Account Deleted Permanently</h4>
+                  <p className="text-xs opacity-80 leading-relaxed font-mono">
+                    Your Firebase Authentication account, Firestore meal history, cloud photos, and local settings have been permanently deleted.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <p className="text-xs leading-relaxed opacity-90">
+                    Are you sure you want to delete your account? This action is permanent and cannot be undone. Deletion permanently removes:
+                  </p>
+
+                  <ul className="text-xs space-y-1.5 list-disc list-inside font-mono opacity-80 bg-red-500/5 p-3.5 rounded-xl border border-red-500/20">
+                    <li>The Firebase Authentication account</li>
+                    <li>All Firestore meal-history records belonging to the user</li>
+                    <li>All meal photos belonging to the user in Firebase Storage</li>
+                    <li>Local meal history and photos</li>
+                    <li>Local settings and preferences</li>
+                    <li>The stored Gemini API key</li>
+                  </ul>
+
+                  {deleteAccountError && (
+                    <div className="p-3 rounded-xl text-xs font-mono bg-red-500/10 text-red-500 border border-red-500/20 space-y-1">
+                      <p className="font-bold">Deletion Failed</p>
+                      <p className="opacity-90">{deleteAccountError}</p>
+                    </div>
+                  )}
+
+                  <div className="pt-2 space-y-2">
+                    <button
+                      disabled={isDeletingAccount}
+                      onClick={executeAccountDeletion}
+                      className="w-full py-3.5 rounded-xl font-display font-extrabold uppercase text-xs tracking-wider text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 shadow-md border-0 cursor-pointer transition-all flex items-center justify-center gap-2"
+                    >
+                      {isDeletingAccount ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                          <span>Deleting Account & Data...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Trash2 className="w-4 h-4" />
+                          <span>Delete Account Permanently</span>
+                        </>
+                      )}
+                    </button>
+
+                    {!isDeletingAccount && (
+                      <button
+                        onClick={() => setShowDeleteAccountModal(false)}
+                        className="w-full py-2.5 rounded-xl font-mono text-xs font-bold border border-gray-500/20 text-slate-500 dark:text-slate-400 bg-transparent hover:bg-gray-500/5 cursor-pointer transition-all"
+                      >
+                        Cancel
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
             </motion.div>
           </div>
         )}

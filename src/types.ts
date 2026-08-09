@@ -39,7 +39,12 @@ export interface MealLog {
   id: string;
   timestamp: string;
   name: string;
-  image?: string; // Base64 data url for viewing
+  image?: string; // local or display photo URL
+  photoUrl?: string; // Firebase Storage download URL
+  storagePath?: string; // Firebase Storage path e.g. users/{uid}/meal_photos/{id}.jpg
+  ownerUid?: string;
+  uploadedAt?: string; // ISO date string
+  autoDeleteAt?: string; // ISO date string (6 months after upload)
   calories: number;
   protein: number;
   carbs: number;

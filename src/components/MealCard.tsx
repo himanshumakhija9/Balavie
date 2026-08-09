@@ -1,5 +1,5 @@
 import React from "react";
-import { Trash2, Edit, MessageSquare, Heart } from "lucide-react";
+import { Trash2, Edit, MessageSquare, Heart, Share2 } from "lucide-react";
 import { MealLog } from "../types";
 
 interface MealCardProps {
@@ -7,6 +7,7 @@ interface MealCardProps {
   log: MealLog;
   onDelete: (id: string, e: React.MouseEvent) => void;
   onEdit: (log: MealLog) => void;
+  onShare?: (log: MealLog) => void;
   onCheer: (id: string) => void;
   cheersCount: number;
   isDark: boolean;
@@ -16,6 +17,7 @@ export default function MealCard({
   log,
   onDelete,
   onEdit,
+  onShare,
   onCheer,
   cheersCount,
   isDark,
@@ -89,8 +91,19 @@ export default function MealCard({
           </div>
         </div>
 
-        {/* Edit and Delete Buttons */}
+        {/* Share, Edit and Delete Buttons */}
         <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+          {onShare && (
+            <button
+              onClick={() => onShare(log)}
+              title="Share meal summary"
+              className={`p-1.5 rounded-lg transition-colors border-0 bg-transparent cursor-pointer ${
+                isDark ? "text-[#7A766E] hover:text-[#3ECF8E] hover:bg-[#2C2A27]" : "text-[#8B978D] hover:text-[#1CA35A] hover:bg-[#F3F6F1]"
+              }`}
+            >
+              <Share2 className="w-3.5 h-3.5" />
+            </button>
+          )}
           <button
             onClick={() => onEdit(log)}
             title="Edit timing or values"
@@ -114,8 +127,8 @@ export default function MealCard({
 
       {/* Photo Banner */}
       <div className="h-32 w-full relative overflow-hidden border-y border-[#2C2A27]/5 dark:border-[#2C2A27]/25">
-        {log.image ? (
-          <img src={log.image} alt={log.name} className="w-full h-full object-cover" />
+        {(log.photoUrl || log.image) ? (
+          <img src={log.photoUrl || log.image} alt={log.name} className="w-full h-full object-cover" />
         ) : (
           <div className="w-full h-full bg-gradient-to-r from-[#1CA35A]/5 via-[#FF7A1A]/5 to-[#1CA35A]/5 flex items-center justify-center">
             <span

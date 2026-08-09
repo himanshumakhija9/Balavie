@@ -78,9 +78,6 @@ export default function CalorieChart({ pastLogs, isDark }: CalorieChartProps) {
         >
           7-DAY CALORIE HISTOGRAM
         </span>
-        <span className={`text-[9px] font-semibold text-[#FF7A1A] dark:text-[#FF9440] uppercase`}>
-          🍊 ORANGE = 90+ BALANCE SCORE
-        </span>
       </div>
 
       <div className="flex justify-between items-end h-28 pt-2 px-1">
