@@ -77,141 +77,14 @@ function cleanMealName(name: string): string {
   return cleaned || "Meal Log";
 }
 
-// Dynamic fallback generator to guarantee flawless resilience if Gemini API suffers timeout or error
-function generateFallbackResponse(text: string, withPhoto: boolean, localHour: number, dietType: string = "") {
-  const lower = (text || "").toLowerCase().trim();
-  
-  // Determine meal period based on local hour
-  let mealPeriod = "Snack";
-  if (localHour >= 5 && localHour < 11) mealPeriod = "Breakfast";
-  else if (localHour >= 11 && localHour < 15) mealPeriod = "Lunch";
-  else if (localHour >= 15 && localHour < 18) mealPeriod = "Afternoon Snack";
-  else if (localHour >= 18 && localHour < 22) mealPeriod = "Dinner";
-  else mealPeriod = "Late Night Snack";
-
-  // Try to parse explicit macro values from the user's input (if they happen to write them, e.g. from professional labels)
-  const calMatch = lower.match(/\b(\d+)\s*(?:cal|calories|kcal|cals)\b/i);
-  const protMatch = lower.match(/\b(\d+(?:\.\d+)?)\s*(?:g\s*protein|g\s*p\b|g\s*prot|grams\s*protein|grams\s*of\s*protein)\b/i);
-  const carbMatch = lower.match(/\b(\d+(?:\.\d+)?)\s*(?:g\s*carbs|g\s*carb|g\s*c\b|grams\s*carbohydrates|grams\s*of\s*carbohydrates|grams\s*of\s*carbs)\b/i);
-  const fatMatch = lower.match(/\b(\d+(?:\.\d+)?)\s*(?:g\s*fat|g\s*f\b|grams\s*fat|grams\s*of\s*fat)\b/i);
-  const fibMatch = lower.match(/\b(\d+(?:\.\d+)?)\s*(?:g\s*fiber|g\s*fib|grams\s*fiber)\b/i);
-  const phosMatch = lower.match(/\b(\d+)\s*(?:mg\s*phosphorus|mg\s*phos|mg\s*p\b)\b/i);
-  const antiMatch = lower.match(/\b(\d+)\s*(?:units?\s*antioxidants|antioxidants?|anti\b)\b/i);
-
-  if (calMatch && protMatch && carbMatch && fatMatch) {
-    const calories = parseInt(calMatch[1]);
-    const protein = parseFloat(protMatch[1]);
-    const carbs = parseFloat(carbMatch[1]);
-    const fat = parseFloat(fatMatch[1]);
-    const fiber = fibMatch ? parseFloat(fibMatch[1]) : 0;
-    const phosphorus = phosMatch ? parseInt(phosMatch[1]) : 0;
-    const antioxidants = antiMatch ? Math.min(10, parseInt(antiMatch[1])) : 1;
-
-    // Remove parsed macro phrases to get a clean meal name
-    let cleanName = text
-      .replace(/\b\d+\s*(?:cal|calories|kcal|cals)\b/gi, "")
-      .replace(/\b\d+(?:\.\d+)?\s*(?:g\s*protein|g\s*p\b|g\s*prot|grams\s*protein|grams\s*of\s*protein)\b/gi, "")
-      .replace(/\b\d+(?:\.\d+)?\s*(?:g\s*carbs|g\s*carb|g\s*c\b|grams\s*carbohydrates|grams\s*of\s*carbohydrates|grams\s*of\s*carbs)\b/gi, "")
-      .replace(/\b\d+(?:\.\d+)?\s*(?:g\s*fat|g\s*f\b|grams\s*fat|grams\s*of\s*fat)\b/gi, "")
-      .replace(/\b\d+(?:\.\d+)?\s*(?:g\s*fiber|g\s*fib|grams\s*fiber)\b/gi, "")
-      .replace(/\b\d+\s*(?:mg\s*phosphorus|mg\s*phos|mg\s*p\b)\b/gi, "")
-      .replace(/\b\d+\s*(?:units?\s*antioxidants|antioxidants?|anti\b)\b/gi, "")
-      .replace(/[,;+\s]+/g, " ")
-      .trim();
-
-    if (!cleanName || cleanName.length < 2) {
-      cleanName = "Custom Logged Meal";
-    }
-
-    const capitalize = (str: string) => {
-      return str.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
-    };
-
-    const finalName = capitalize(cleanName);
-
-    return {
-      status: "success",
-      mealAnalysis: {
-        name: cleanMealName(finalName),
-        mealPeriod,
-        calories,
-        protein,
-        carbs,
-        fat,
-        fiber,
-        phosphorus,
-        antioxidants,
-        confidence: "high",
-        portionDetected: "Precisely specified by user",
-        ingredients: [
-          {
-            name: finalName,
-            amount: "1 serving (macros specified)"
-          }
-        ]
-      },
-      insights: {
-        digestBetter: `You logged ${calories} kcal with precise macronutrients: P: ${protein}g, C: ${carbs}g, F: ${fat}g. This manual baseline entry ensures 100% computational integrity.`,
-        bestTimeOfDay: `Your logged macro profile is actively accounted for. For your next meal, balance your intake according to your remaining daily nutrient targets.`,
-        activityToEliminate: `✅ **WHAT TO DO (Light Work/Exercise):** Proceed with healthy daily habits mapped to your metabolic targets.\n❌ **WHAT NOT TO DO:** Avoid sitting completely idle if you consumed high-carb foods, to prevent glycemic pooling.`,
-        whatToDo: `Continue tracking meals with exact specifications to maintain maximum precision.`,
-        whatNotToDo: `Avoid logging vague portions without ingredients or nutritional parameters when in standalone mode.`
-      }
-    };
-  }
-
-  // If macros are not fully specified, use a rich, robust keyword parser to guess high-fidelity values
-  // Split input by separators like "with", "+", ",", "and" (except "&") to find ingredients
-  const rawItems = lower.split(/,|\bwith\b|\band\b|\+/)
-    .map(s => s.trim())
-    .filter(s => s.length > 0 && s !== "&");
-
-  if (rawItems.length === 0) {
-    rawItems.push("healthy balanced plate");
-  }
-
-  let totalCalories = 0;
-  let totalProtein = 0;
-  let totalCarbs = 0;
-  let totalFat = 0;
-  let totalFiber = 0;
-  let totalPhosphorus = 0;
-  let maxAntioxidants = 1;
-  const ingredients: { name: string; amount: string }[] = [];
-  let recognizedAny = false;
-
-  const capitalize = (str: string) => {
-    return str.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+// Deprecated fallback generator - strict BYOK mode requires personal Gemini API key
+function generateFallbackResponse() {
+  return {
+    error: "Gemini API key is required. Please enter your personal Gemini API key.",
+    requiresApiKey: true
   };
+}
 
-  rawItems.forEach((item) => {
-    let multiplier = 1;
-    // Check for numbers at the start of the item (e.g., "2 small bowls", "1 glass")
-    const numMatch = item.match(/^(\d+(\.\d+)?)\s*(g|oz|ml|cup|cups|serving|servings|slice|slices|tbsp|tsp|can|cans|piece|pieces|bowl|bowls|plate|plates|glass|glasses)?/i);
-    if (numMatch) {
-      multiplier = parseFloat(numMatch[1]);
-    } else {
-      const wordsMap: Record<string, number> = {
-        one: 1, two: 2, three: 3, four: 4, five: 5,
-        six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
-        double: 2, triple: 3, half: 0.5, "a couple of": 2
-      };
-      for (const [word, val] of Object.entries(wordsMap)) {
-        if (item.toLowerCase().startsWith(word)) {
-          multiplier = val;
-          break;
-        }
-      }
-    }
-
-    // Clean prefixes
-    let cleanItem = item.replace(/^\d+\s*(g|oz|ml|cup|cups|serving|servings|slice|slices|tbsp|tsp|can|cans|piece|pieces|bowl|bowls|plate|plates|glass|glasses)?\s*(of\s+)?/gi, "");
-    cleanItem = cleanItem.replace(/^\d+\s*/g, ""); // remove digits
-    cleanItem = cleanItem.replace(/^(a|an|the|some|fresh|cooked|roasted|grilled|baked|steamed|tossed|raw|pastured|organic)\s+/gi, "");
-    
-    if (!cleanItem) cleanItem = item;
-
-    const itemLower = cleanItem.toLowerCase().trim();
 
     // Default item macros if recognized
     let itemCal = 0;
@@ -446,21 +319,16 @@ app.post("/api/logs/clear", (req, res) => {
   }
 });
 
-// Initialize the GoogleGenAI instance server-side
-let ai: GoogleGenAI | null = null;
-const apiKey = process.env.GEMINI_API_KEY;
-
-if (apiKey) {
-  ai = new GoogleGenAI({
-    apiKey: apiKey,
-    httpOptions: {
-      headers: {
-        "User-Agent": "aistudio-build",
-      },
-    },
-  });
-} else {
-  console.warn("WARNING: GEMINI_API_KEY environment variable is not set. Meal logging will fallback to simulated analysis.");
+// Helper function to redact API keys from server logs and error messages
+function redactApiKey(input: any, userKey?: string): string {
+  if (!input) return "";
+  let text = typeof input === "string" ? input : (input.message || String(input));
+  if (userKey && typeof userKey === "string" && userKey.trim().length > 0) {
+    text = text.replaceAll(userKey.trim(), "[REDACTED_API_KEY]");
+  }
+  text = text.replace(/AIzaSy[A-Za-z0-9_-]{33}/g, "[REDACTED_API_KEY]");
+  text = text.replace(/key=[A-Za-z0-9_-]+/gi, "key=[REDACTED_API_KEY]");
+  return text;
 }
 
 // Simple in-memory session mapping to accumulate meal state and clarifications
@@ -651,26 +519,33 @@ app.post("/api/analyze-meal", async (req, res) => {
       }
     }
 
-    // Determine AI client instance: user's custom key if provided, otherwise default server instance
-    let requestAi = ai;
-    if (customApiKey && typeof customApiKey === "string" && customApiKey.trim().length > 0) {
-      try {
-        requestAi = new GoogleGenAI({
-          apiKey: customApiKey.trim(),
-          httpOptions: {
-            headers: {
-              "User-Agent": "aistudio-build-custom-key",
-            },
-          },
-        });
-      } catch (keyErr) {
-        console.error("Failed to initialize GoogleGenAI with custom key:", keyErr);
-      }
+    // Require user's personal Gemini API key (Strict BYOK Mode)
+    if (!customApiKey || typeof customApiKey !== "string" || !customApiKey.trim()) {
+      return res.status(400).json({
+        error: "Gemini API key is required. Please set up your personal Gemini API key.",
+        requiresApiKey: true
+      });
     }
 
-    // fallback simulation mode if Gemini API key remains absent
-    if (!requestAi) {
-      return res.json(generateFallbackResponse(targetText, !!targetImage, parsedLocalHour, dietType));
+    const cleanKey = customApiKey.trim();
+    let requestAi: GoogleGenAI;
+    try {
+      requestAi = new GoogleGenAI({
+        apiKey: cleanKey,
+        httpOptions: {
+          headers: {
+            "User-Agent": "balavie-byok",
+          },
+        },
+      });
+    } catch (keyErr: any) {
+      const safeMsg = redactApiKey(keyErr, cleanKey);
+      console.error("Failed to initialize GoogleGenAI with custom key:", safeMsg);
+      return res.status(400).json({
+        error: "Invalid Gemini API key format. Please check your key.",
+        requiresApiKey: true,
+        details: safeMsg
+      });
     }
 
     // Preparing contents parts for Gemini API
@@ -890,17 +765,19 @@ Strict JSON Response Schema Rules:
 
       return res.json(resultObj);
     } catch (apiErr: any) {
-      console.error("Gemini API call failed:", apiErr.message || apiErr);
+      const safeMsg = redactApiKey(apiErr, cleanKey);
+      console.error("Gemini API call failed:", safeMsg);
       return res.status(500).json({
-        error: "Our Gemini AI Dietitian encountered an issue. Please try again in a few seconds.",
-        details: apiErr.message || String(apiErr)
+        error: "Gemini API call failed. Please check your API key or try again in a few seconds.",
+        details: safeMsg
       });
     }
   } catch (err: any) {
-    console.error("API error during meal analysis route execution:", err);
+    const safeMsg = redactApiKey(err);
+    console.error("API error during meal analysis route execution:", safeMsg);
     res.status(500).json({
-      error: "We encountered an issue during meal analysis. Please try again with simple descriptive words.",
-      details: err.message
+      error: "We encountered an issue during meal analysis. Please try again or check your API key.",
+      details: safeMsg
     });
   }
 });
