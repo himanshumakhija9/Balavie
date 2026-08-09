@@ -76,13 +76,17 @@
       background: #FF7A1A;
     }
 
-    .button:hover {
+    .button:hover,
+    .button:focus {
       opacity: 0.9;
     }
 
     .legal-links {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px 16px;
       margin-top: 48px;
-      line-height: 2.2;
     }
 
     .legal-links a {
@@ -91,7 +95,8 @@
       text-decoration: none;
     }
 
-    .legal-links a:hover {
+    .legal-links a:hover,
+    .legal-links a:focus {
       text-decoration: underline;
     }
 
@@ -109,6 +114,11 @@
       color: #0D9488;
       font-weight: 600;
       text-decoration: none;
+    }
+
+    footer a:hover,
+    footer a:focus {
+      text-decoration: underline;
     }
 
     @media (max-width: 600px) {
@@ -130,12 +140,15 @@
         margin: 12px auto;
       }
 
-      .legal-links span {
-        display: none;
+      .legal-links {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 12px;
       }
 
       .legal-links a {
         display: block;
+        padding: 5px;
       }
     }
   </style>
@@ -176,19 +189,25 @@
     </div>
 
     <nav class="legal-links" aria-label="Legal and support pages">
-      ./privacy.htmlPrivacy Policy</a>
-      <span> · </span>
+      ./privacy.html
+        Privacy Policy
+      </a>
 
-      ./health-disclaimer.htmlHealth Disclaimer</a>
-      <span> · </span>
+      ./health-disclaimer.html
+        Health Disclaimer
+      </a>
 
-      ./data-deletion.htmlData Deletion</a>
-      <span> · </span>
+      ./data-deletion.html
+        Data Deletion
+      </a>
 
-      ./support.htmlSupport</a>
-      <span> · </span>
+      ./support.html
+        Support
+      </a>
 
-      ./terms.htmlTerms of Use</a>
+      ./terms.html
+        Terms of Use
+      </a>
     </nav>
 
     <footer>
