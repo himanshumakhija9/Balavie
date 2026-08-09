@@ -1,0 +1,26 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Match meal photo files under users/{uid}/logs/{fileName}
+    match /users/{uid}/logs/{fileName} {
+      // Allow read for the authenticated owner
+      allow read: if request.auth != null && request.auth.uid == uid;
+
+      // Allow upload (create, update) if authenticated owner, image file, and max 3 MB
+      allow create, update: if request.auth != null 
+                            && request.auth.uid == uid 
+                            && request.resource.contentType.matches('image/.*') 
+                            && request.resource.size <= 3 * 1024 * 1024;
+
+      // Allow deletion for the authenticated owner
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Deny all other access
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

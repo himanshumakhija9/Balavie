@@ -2359,12 +2359,12 @@ export default function App() {
             </div>
 
             {/* Custom Gemini API Key Card */}
-            <div className={`border rounded-[20px] p-5 shadow-sm text-left space-y-4 transition-colors duration-300 ${isDark ? 'bg-[#1E1C1A] border-[#2C2A27]' : 'bg-white border-[#E4EAE2]'}`}>
+            <div className={`border rounded-[20px] p-4 shadow-sm text-left space-y-3 transition-colors duration-300 ${isDark ? 'bg-[#1E1C1A] border-[#2C2A27]' : 'bg-white border-[#E4EAE2]'}`}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Key className="w-4 h-4 text-[#1CA35A] dark:text-[#3ECF8E]" />
                   <span className={`font-mono text-[9px] uppercase font-bold tracking-[1.6px] ${isDark ? "text-[#A8A49C]" : "text-[#5D6B60]"}`}>
-                    GEMINI API KEY (BYOK MODE)
+                    GEMINI API KEY
                   </span>
                 </div>
                 {customApiKey ? (
@@ -2377,10 +2377,6 @@ export default function App() {
                   </span>
                 )}
               </div>
-
-              <p className={`text-xs leading-relaxed ${isDark ? 'text-[#A8A49C]' : 'text-[#5D6B60]'}`}>
-                Balavie operates in Bring Your Own Key mode. Enter your personal Gemini API key below to analyze meals.
-              </p>
 
               {/* Notice Toast */}
               {apiKeySaveNotice && (
@@ -2437,31 +2433,19 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Get your Gemini API key help section */}
-              <div className={`p-3.5 rounded-xl border border-dashed space-y-2.5 transition-colors ${
-                isDark ? 'bg-[#141312]/60 border-[#2C2A27]' : 'bg-[#F8FAF7] border-[#E4EAE2]'
-              }`}>
-                <h4 className={`text-xs font-bold font-display ${isDark ? 'text-[#F5F2EC]' : 'text-[#15241B]'}`}>
-                  Get your Gemini API key
-                </h4>
-                <p className={`text-[11.5px] leading-relaxed ${isDark ? 'text-[#A8A49C]' : 'text-[#5D6B60]'}`}>
-                  Balavie requires your own Gemini API key for AI meal analysis. Create and manage your key through Google
-                </p>
+              <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-mono pt-1">
                 <a
                   href="https://aistudio.google.com/app/apikey"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-lg font-mono text-xs font-bold bg-[#1CA35A]/10 text-[#1CA35A] dark:bg-[#3ECF8E]/10 dark:text-[#3ECF8E] border border-[#1CA35A]/20 dark:border-[#3ECF8E]/20 hover:bg-[#1CA35A]/20 dark:hover:bg-[#3ECF8E]/20 transition-all no-underline"
+                  className="text-[#1CA35A] dark:text-[#3ECF8E] hover:underline inline-flex items-center gap-1 font-medium"
                 >
-                  <span>Open Google AI Studio</span>
-                  <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+                  <span>Get a Gemini API key</span>
+                  <ExternalLink className="w-3 h-3" />
                 </a>
-              </div>
-
-              {/* Local environment note */}
-              <div className="flex items-center gap-1.5 text-[9.5px] font-mono opacity-60">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                <span>Stored strictly in browser local storage. Never saved to cloud databases.</span>
+                <span className={`text-[10.5px] ${isDark ? 'text-[#8B867E]' : 'text-[#7D8A80]'}`}>
+                  Stored only on this device. Never synced.
+                </span>
               </div>
             </div>
 
