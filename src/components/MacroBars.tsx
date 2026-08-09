@@ -1,5 +1,5 @@
 import React from "react";
-import { calculateTargets } from "../lib/nutrition";
+import { calculateTargets, Lifestyle } from "../lib/nutrition";
 
 interface MacroBarsProps {
   todayProtein: number;
@@ -8,6 +8,7 @@ interface MacroBarsProps {
   todayFiber: number;
   bodyWeight: number;
   bodyHeight: number;
+  lifestyle?: Lifestyle;
   isDark: boolean;
 }
 
@@ -18,9 +19,10 @@ export default function MacroBars({
   todayFiber,
   bodyWeight,
   bodyHeight,
+  lifestyle = 'moderate',
   isDark,
 }: MacroBarsProps) {
-  const targets = calculateTargets(bodyWeight, bodyHeight);
+  const targets = calculateTargets(bodyWeight, bodyHeight, lifestyle);
 
   const proteinTarget = targets.protein;
   const carbsTarget = targets.carbs;

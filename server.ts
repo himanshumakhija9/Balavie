@@ -587,7 +587,7 @@ app.post("/api/create-checkout-session", async (req, res) => {
           price_data: {
             currency: currency,
             product_data: {
-              name: "Buy me a coffee — Support balanceAI",
+              name: "Buy me a coffee — Support Balavie",
               description: "Support our physical liberation and healthy nutrition tracking journey!",
             },
             unit_amount: parsedAmount * 100, // unit amount in cents
@@ -610,7 +610,7 @@ app.post("/api/create-checkout-session", async (req, res) => {
 // API Route for analyzing a meal
 app.post("/api/analyze-meal", async (req, res) => {
   try {
-    const { textInput, imageInput, sessionKey, clarificationAnswers, localHour, dietType, todayMacros, history, bodyWeight } = req.body;
+    const { textInput, imageInput, sessionKey, clarificationAnswers, localHour, dietType, todayMacros, history, bodyWeight, customApiKey } = req.body;
     const parsedLocalHour = localHour !== undefined ? Number(localHour) : new Date().getHours();
 
     const proteinTarget = bodyWeight && Number(bodyWeight) > 0 ? Number(bodyWeight) : 100;
@@ -651,8 +651,25 @@ app.post("/api/analyze-meal", async (req, res) => {
       }
     }
 
+    // Determine AI client instance: user's custom key if provided, otherwise default server instance
+    let requestAi = ai;
+    if (customApiKey && typeof customApiKey === "string" && customApiKey.trim().length > 0) {
+      try {
+        requestAi = new GoogleGenAI({
+          apiKey: customApiKey.trim(),
+          httpOptions: {
+            headers: {
+              "User-Agent": "aistudio-build-custom-key",
+            },
+          },
+        });
+      } catch (keyErr) {
+        console.error("Failed to initialize GoogleGenAI with custom key:", keyErr);
+      }
+    }
+
     // fallback simulation mode if Gemini API key remains absent
-    if (!ai) {
+    if (!requestAi) {
       return res.json(generateFallbackResponse(targetText, !!targetImage, parsedLocalHour, dietType));
     }
 
@@ -780,7 +797,7 @@ Strict JSON Response Schema Rules:
     
     try {
       const response = await generateContentWithRetryAndFallbacks(
-        ai,
+        requestAi,
         {
           contents: { parts },
           config: {

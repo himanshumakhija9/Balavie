@@ -1,5 +1,5 @@
 import React from "react";
-import { calculateTargets } from "../lib/nutrition";
+import { calculateTargets, Lifestyle } from "../lib/nutrition";
 
 interface BalanceRingProps {
   todayCalories: number;
@@ -9,6 +9,7 @@ interface BalanceRingProps {
   todayFiber: number;
   bodyWeight: number;
   bodyHeight: number;
+  lifestyle?: Lifestyle;
   isDark: boolean;
 }
 
@@ -20,9 +21,10 @@ export default function BalanceRing({
   todayFiber,
   bodyWeight,
   bodyHeight,
+  lifestyle = 'moderate',
   isDark,
 }: BalanceRingProps) {
-  const targets = calculateTargets(bodyWeight, bodyHeight);
+  const targets = calculateTargets(bodyWeight, bodyHeight, lifestyle);
 
   const proteinTarget = targets.protein;
   const carbsTarget = targets.carbs;

@@ -32,7 +32,12 @@ import {
   Save,
   Calendar,
   User,
-  Leaf
+  Leaf,
+  Key,
+  Eye,
+  EyeOff,
+  ExternalLink,
+  ShieldCheck
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { MealLog, MealAnalysisResponse } from "./types";
@@ -40,7 +45,7 @@ import BalanceRing from "./components/BalanceRing";
 import MacroBars from "./components/MacroBars";
 import CalorieChart from "./components/CalorieChart";
 import MealCard from "./components/MealCard";
-import { calculateTargets } from "./lib/nutrition";
+import { calculateTargets, Lifestyle } from "./lib/nutrition";
 import { auth, db, googleProvider } from "./firebase";
 import { signInWithPopup, signOut, onAuthStateChanged } from "firebase/auth";
 import { collection, doc, setDoc, deleteDoc, getDocs, query, writeBatch } from "firebase/firestore";
@@ -105,6 +110,44 @@ function cleanForFirestore(obj: any): any {
     return result;
   }
   return obj;
+}
+
+function compressImage(base64Str: string, maxWidth = 500, maxHeight = 500, quality = 0.65): Promise<string> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.src = base64Str;
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      let width = img.width;
+      let height = img.height;
+
+      if (width > height) {
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+      } else {
+        if (height > maxHeight) {
+          width = Math.round((width * maxHeight) / height);
+          height = maxHeight;
+        }
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      } else {
+        resolve(base64Str);
+      }
+    };
+    img.onerror = () => {
+      resolve(base64Str);
+    };
+  });
 }
 
 function getCombinedWhatToDo(whatToDo?: string, bestTimeOfDay?: string): string {
@@ -269,6 +312,15 @@ export default function App() {
     return cached ? Number(cached) : 170;
   });
 
+  // Lifestyle / Activity Level state (sedentary, moderate, active)
+  const [lifestyle, setLifestyle] = useState<Lifestyle>(() => {
+    const cached = localStorage.getItem("mindful_flow_lifestyle");
+    if (cached === 'sedentary' || cached === 'moderate' || cached === 'active') {
+      return cached as Lifestyle;
+    }
+    return 'moderate';
+  });
+
   // Unique chronological timestamps when app was active to trace long usage streak
   const [activeDates, setActiveDates] = useState<string[]>(() => {
     try {
@@ -325,6 +377,60 @@ export default function App() {
   // PWA elements holding states
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isInstallable, setIsInstallable] = useState(false);
+
+  // User custom Gemini API key state (stored strictly in local environment / localStorage)
+  const [customApiKey, setCustomApiKey] = useState<string>(() => {
+    return localStorage.getItem("mindful_flow_custom_api_key") || "";
+  });
+  const [tempApiKeyInput, setTempApiKeyInput] = useState<string>(customApiKey);
+  const [showApiKey, setShowApiKey] = useState<boolean>(false);
+  const [apiKeySaveNotice, setApiKeySaveNotice] = useState<string | null>(null);
+
+  // Helper to count free analyses used today (when no custom key provided)
+  const getFreeAnalysesTodayCount = (): number => {
+    try {
+      const todayStr = new Date().toDateString();
+      const stored = localStorage.getItem("mindful_flow_free_analyses");
+      if (!stored) return 0;
+      const data: string[] = JSON.parse(stored);
+      if (Array.isArray(data)) {
+        return data.filter(d => d === todayStr).length;
+      }
+    } catch (_) {}
+    return 0;
+  };
+
+  // Helper to record a free analysis usage
+  const recordFreeAnalysisUsed = () => {
+    try {
+      const todayStr = new Date().toDateString();
+      const stored = localStorage.getItem("mindful_flow_free_analyses");
+      let data: string[] = stored ? JSON.parse(stored) : [];
+      if (!Array.isArray(data)) data = [];
+      const twoWeeksAgo = Date.now() - 14 * 86400000;
+      data = data.filter(d => {
+        try { return new Date(d).getTime() > twoWeeksAgo; } catch (_) { return false; }
+      });
+      data.push(todayStr);
+      localStorage.setItem("mindful_flow_free_analyses", JSON.stringify(data));
+    } catch (_) {}
+  };
+
+  const handleSaveApiKey = () => {
+    const trimmed = tempApiKeyInput.trim();
+    setCustomApiKey(trimmed);
+    localStorage.setItem("mindful_flow_custom_api_key", trimmed);
+    setApiKeySaveNotice("API Key saved securely in local storage! Unlimited meal analyses unlocked.");
+    setTimeout(() => setApiKeySaveNotice(null), 4000);
+  };
+
+  const handleClearApiKey = () => {
+    setCustomApiKey("");
+    setTempApiKeyInput("");
+    localStorage.removeItem("mindful_flow_custom_api_key");
+    setApiKeySaveNotice("Custom API Key removed. Reverted to default limit (1 analysis / day).");
+    setTimeout(() => setApiKeySaveNotice(null), 4000);
+  };
 
 
 
@@ -417,6 +523,10 @@ export default function App() {
               if (dat.bodyHeight !== undefined) {
                 setBodyHeight(Number(dat.bodyHeight));
               }
+              if (dat.lifestyle !== undefined && (dat.lifestyle === 'sedentary' || dat.lifestyle === 'moderate' || dat.lifestyle === 'active')) {
+                setLifestyle(dat.lifestyle as Lifestyle);
+                localStorage.setItem("mindful_flow_lifestyle", dat.lifestyle);
+              }
               if (dat.activeDates !== undefined) {
                 const parsedDates = Array.isArray(dat.activeDates) ? dat.activeDates : [];
                 setActiveDates(parsedDates);
@@ -506,18 +616,26 @@ export default function App() {
   };
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 10 * 1024 * 1024) {
-      setErrorMessage("Photo upload limit is 10MB for fast analysis.");
+    if (file.size > 20 * 1024 * 1024) {
+      setErrorMessage("Photo upload limit is 20MB for fast analysis.");
       return;
     }
     const reader = new FileReader();
-    reader.onloadend = () => {
-      setImageInput(reader.result as string);
-      setErrorMessage(null);
+    reader.onloadend = async () => {
+      const rawBase64 = reader.result as string;
+      try {
+        const compressed = await compressImage(rawBase64);
+        setImageInput(compressed);
+        setErrorMessage(null);
+      } catch (err) {
+        setImageInput(rawBase64);
+        setErrorMessage(null);
+      }
     };
     reader.onerror = () => setErrorMessage("Could not parse image.");
     reader.readAsDataURL(file);
@@ -526,6 +644,7 @@ export default function App() {
   const removeCapturedImage = () => {
     setImageInput(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
+    if (cameraInputRef.current) cameraInputRef.current.value = "";
   };
 
   // Submit to backend
@@ -534,6 +653,18 @@ export default function App() {
       setErrorMessage("Please type what you ate or snap a picture of your plate.");
       return;
     }
+
+    const hasCustomKey = customApiKey && customApiKey.trim().length > 0;
+    if (!hasCustomKey) {
+      const freeUsedToday = getFreeAnalysesTodayCount();
+      if (freeUsedToday >= 1) {
+        setErrorMessage(
+          "Free daily limit reached (1/1 for today). Add your own free Gemini API key in Settings for unlimited meal analyses!"
+        );
+        return;
+      }
+    }
+
     setIsLoading(true);
     setErrorMessage(null);
 
@@ -568,6 +699,7 @@ export default function App() {
         localHour: new Date().getHours(),
         dietType,
         bodyWeight,
+        customApiKey: hasCustomKey ? customApiKey.trim() : undefined,
         todayMacros: {
           protein: todayProtein,
           carbs: todayCarbs,
@@ -603,6 +735,12 @@ export default function App() {
       }
 
       const data: MealAnalysisResponse = await res.json();
+
+      if (data.status === "success" || data.status === "clarification_needed") {
+        if (!hasCustomKey) {
+          recordFreeAnalysisUsed();
+        }
+      }
       
       if (data.status === "success") {
         setCurrentAnalysis(null);
@@ -610,6 +748,7 @@ export default function App() {
         setTextInput("");
         setImageInput(null);
         if (fileInputRef.current) fileInputRef.current.value = "";
+        if (cameraInputRef.current) cameraInputRef.current.value = "";
 
         if (data.mealAnalysis && data.insights) {
           const cleanName = data.mealAnalysis.name.toLowerCase().trim();
@@ -951,7 +1090,9 @@ export default function App() {
   )).length;
 
   const currentStreak = (() => {
-    if (pastLogs.length === 0) return 0;
+    // If no meals have been recorded today, active streak is 0
+    if (todayLogs.length === 0) return 0;
+
     const sortedDates = Array.from(new Set(
       pastLogs.map(log => {
         if (log.dateStr) return new Date(log.dateStr).setHours(0,0,0,0);
@@ -965,60 +1106,51 @@ export default function App() {
       }).filter(Boolean) as number[]
     )).sort((a,b) => b - a);
 
-    let streak = 0;
+    if (sortedDates.length === 0) return 0;
+
     let today = new Date();
     today.setHours(0,0,0,0);
     let check = today.getTime();
 
-    if (sortedDates[0] && (sortedDates[0] === check || sortedDates[0] === check - 86400000)) {
-      streak = 1;
-      let current = sortedDates[0];
-      for (let i = 1; i < sortedDates.length; i++) {
-        if (current - sortedDates[i] <= 86400000 * 1.5) {
-          streak++;
-          current = sortedDates[i];
-        } else {
-          break;
-        }
+    // Today must have logged meals to start/continue a streak
+    if (sortedDates[0] !== check) return 0;
+
+    let streak = 1;
+    let current = check;
+    for (let i = 1; i < sortedDates.length; i++) {
+      const diff = current - sortedDates[i];
+      if (diff > 0 && diff <= 86400000 * 1.5) {
+        streak++;
+        current = sortedDates[i];
+      } else {
+        break;
       }
     }
     return streak;
   })();
 
-  const activeStreak = (() => {
-    if (activeDates.length === 0) return 0;
-    const parsed = (activeDates.map(d => {
-      try {
-        return new Date(d).setHours(0,0,0,0);
-      } catch (_) {
-        return 0;
-      }
-    }).filter(Boolean) as number[]).sort((a, b) => b - a);
-    const uniqueDates = Array.from(new Set(parsed)) as number[];
-    
-    let streak = 0;
-    let today = new Date();
-    today.setHours(0,0,0,0);
-    let check = today.getTime();
-    
-    if (uniqueDates[0] && (uniqueDates[0] === check || uniqueDates[0] === check - 86400000)) {
-      streak = 1;
-      let current = uniqueDates[0];
-      for (let i = 1; i < uniqueDates.length; i++) {
-        if (current - uniqueDates[i] <= 86400000 * 1.5) {
-          streak++;
-          current = uniqueDates[i];
-        } else {
-          break;
-        }
-      }
-    }
-    return streak;
-  })();
-
-  const usageStreak = Math.max(currentStreak, activeStreak);
+  const usageStreak = currentStreak;
 
   const isDark = themeMode === 'dark';
+
+  // Lifestyle options for protein and calorie weighting
+  const lifestyles: { label: string; value: Lifestyle; desc: string; proteinRate: string }[] = [
+    { label: "Sedentary", value: "sedentary", desc: "Desk job / minimal physical movement", proteinRate: "1.1g / kg" },
+    { label: "Moderate", value: "moderate", desc: "Active 3-5 days / balanced exercise", proteinRate: "1.6g / kg" },
+    { label: "Active", value: "active", desc: "Intense training / highly physical daily life", proteinRate: "2.1g / kg" },
+  ];
+
+  const handleLifestyleChange = (value: Lifestyle) => {
+    setLifestyle(value);
+    localStorage.setItem("mindful_flow_lifestyle", value);
+    if (user) {
+      try {
+        setDoc(doc(db, "users", user.uid, "profile", "settings"), {
+          lifestyle: value
+        }, { merge: true });
+      } catch(e) {}
+    }
+  };
 
   // Preset diet pills
   const diets = [
@@ -1104,10 +1236,10 @@ export default function App() {
             <div className="flex flex-col gap-0.5 text-left">
               <div className="flex items-center gap-0.5 leading-none">
                 <span className={`font-sans text-2xl font-semibold tracking-tight ${isDark ? 'text-[#F5F2EC]' : 'text-[#15241B]'}`}>
-                  balance
+                  bala
                 </span>
                 <span className="font-sans text-2xl font-light tracking-tight bg-gradient-to-r from-[#F6C868] to-[#F0913C] bg-clip-text text-transparent font-extrabold">
-                  ai
+                  vie
                 </span>
               </div>
               <span className="font-mono text-[7px] tracking-[4px] sm:tracking-[5px] text-[#8A857B] leading-none uppercase whitespace-nowrap">
@@ -1131,7 +1263,7 @@ export default function App() {
                   <Download className="w-4 h-4" />
                 </div>
                 <div className="text-left">
-                  <h4 className="text-xs font-bold font-sans">Install balanceAI</h4>
+                  <h4 className="text-xs font-bold font-sans">Install Balavie</h4>
                   <p className="text-[10px] font-mono opacity-60">Instant offline healthy dashboard</p>
                 </div>
               </div>
@@ -1178,6 +1310,7 @@ export default function App() {
               todayFiber={todayFiber}
               bodyWeight={bodyWeight}
               bodyHeight={bodyHeight}
+              lifestyle={lifestyle}
               isDark={isDark}
             />
 
@@ -1189,6 +1322,7 @@ export default function App() {
               todayFiber={todayFiber}
               bodyWeight={bodyWeight}
               bodyHeight={bodyHeight}
+              lifestyle={lifestyle}
               isDark={isDark}
             />
 
@@ -1234,30 +1368,52 @@ export default function App() {
                 )}
 
                 {/* Action buttons rows */}
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className={`flex-1 flex items-center justify-center gap-2 py-3 border rounded-xl text-xs font-bold transition-all cursor-pointer bg-transparent ${
-                      isDark 
-                        ? 'border-[#2C2A27] text-[#A8A49C] hover:bg-[#2C2A27]' 
-                        : 'border-[#E4EAE2] text-[#5D6B60] hover:bg-[#F3F6F1]'
-                    }`}
-                  >
-                    <Camera className="w-4 h-4" />
-                    <span>ADD PHOTO</span>
-                  </button>
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    accept="image/*"
-                    onChange={handlePhotoUpload}
-                    className="hidden"
-                  />
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => cameraInputRef.current?.click()}
+                      className={`flex-1 flex items-center justify-center gap-2 py-3 border rounded-xl text-xs font-bold transition-all cursor-pointer bg-transparent ${
+                        isDark 
+                          ? 'border-[#2C2A27] text-[#A8A49C] hover:bg-[#2C2A27]' 
+                          : 'border-[#E4EAE2] text-[#5D6B60] hover:bg-[#F3F6F1]'
+                      }`}
+                    >
+                      <Camera className="w-4 h-4 text-[#FF7A1A] dark:text-[#FF9440]" />
+                      <span>LIVE CAMERA</span>
+                    </button>
+                    <input
+                      type="file"
+                      ref={cameraInputRef}
+                      accept="image/*"
+                      capture="environment"
+                      onChange={handlePhotoUpload}
+                      className="hidden"
+                    />
+
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className={`flex-1 flex items-center justify-center gap-2 py-3 border rounded-xl text-xs font-bold transition-all cursor-pointer bg-transparent ${
+                        isDark 
+                          ? 'border-[#2C2A27] text-[#A8A49C] hover:bg-[#2C2A27]' 
+                          : 'border-[#E4EAE2] text-[#5D6B60] hover:bg-[#F3F6F1]'
+                      }`}
+                    >
+                      <ImageIcon className="w-4 h-4 opacity-70" />
+                      <span>GALLERY</span>
+                    </button>
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      accept="image/*"
+                      onChange={handlePhotoUpload}
+                      className="hidden"
+                    />
+                  </div>
 
                   <button
                     onClick={() => submitAnalyzeMeal()}
                     disabled={isLoading}
-                    className={`flex-1 flex items-center justify-center gap-2 py-3 text-white font-display font-extrabold uppercase tracking-wider text-xs rounded-xl cursor-pointer transition-all border-0 ${
+                    className={`w-full flex items-center justify-center gap-2 py-3 text-white font-display font-extrabold uppercase tracking-wider text-xs rounded-xl cursor-pointer transition-all border-0 ${
                       isLoading ? 'bg-orange-500/50 cursor-not-allowed' : 'bg-[#FF7A1A] dark:bg-[#FF9440] hover:opacity-95 shadow-[0_4px_14px_rgba(255,122,26,0.35)]'
                     }`}
                   >
@@ -1481,7 +1637,18 @@ export default function App() {
                   </p>
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center text-[10px] font-mono font-bold uppercase tracking-wider px-1">
+                    <span className={isDark ? "text-[#7A766E]" : "text-[#8B978D]"}>
+                      LOG HISTORY ({filteredLogs.length})
+                    </span>
+                    {filteredLogs.length > 3 && (
+                      <span className="text-[#1CA35A] dark:text-[#3ECF8E] opacity-90">
+                        Scroll inside box ↓
+                      </span>
+                    )}
+                  </div>
+                  <div className="max-h-[540px] overflow-y-auto pr-1 space-y-4 rounded-xl custom-scrollbar">
                   {filteredLogs.map((log) => {
                     if (editingLogId === log.id) {
                       return (
@@ -1607,6 +1774,7 @@ export default function App() {
                       />
                     );
                   })}
+                  </div>
                 </div>
               )}
             </div>
@@ -1634,7 +1802,7 @@ export default function App() {
                         {user.displayName || "Supporter Athlete"}
                       </h4>
                       <p className={`text-[10px] font-mono leading-none mt-1 ${isDark ? 'text-[#7A766E]' : 'text-[#8B978D]'}`}>
-                        {user.email || "supporter@balanceai.org"}
+                        {user.email || "supporter@balavie.org"}
                       </p>
                     </div>
                   </div>
@@ -1725,8 +1893,77 @@ export default function App() {
                 </div>
               </div>
 
+              {/* Lifestyle & Activity Level Selector */}
+              <div className="space-y-2 pt-2 border-t border-dashed border-[#2C2A27]/20 dark:border-[#2C2A27]/60">
+                <span className={`text-[9px] font-mono tracking-wider font-bold block ${isDark ? 'text-[#A8A49C]' : 'text-[#5D6B60]'}`}>
+                  LIFESTYLE & ACTIVITY LEVEL (PROTEIN WEIGHTING)
+                </span>
+
+                <div className="grid grid-cols-3 gap-2 pt-1">
+                  {lifestyles.map((l) => {
+                    const isSelected = lifestyle === l.value;
+                    return (
+                      <button
+                        key={l.value}
+                        onClick={() => handleLifestyleChange(l.value)}
+                        className={`p-2.5 rounded-xl text-left transition-all cursor-pointer border flex flex-col justify-between ${
+                          isSelected
+                            ? "bg-[#1CA35A] border-[#1CA35A] text-white shadow-sm"
+                            : isDark
+                            ? "bg-transparent border-[#2C2A27] text-[#A8A49C] hover:border-[#7A766E]"
+                            : "bg-transparent border-[#E4EAE2] text-[#5D6B60] hover:border-[#8B978D]"
+                        }`}
+                      >
+                        <div>
+                          <span className="font-extrabold text-xs block font-display uppercase tracking-wider">
+                            {l.label}
+                          </span>
+                          <span className={`text-[9.5px] font-medium block mt-1 leading-snug ${isSelected ? "text-white/90" : "opacity-70"}`}>
+                            {l.desc}
+                          </span>
+                        </div>
+                        <span className={`mt-2 font-mono text-[9px] font-bold py-0.5 px-1.5 rounded self-start ${
+                          isSelected ? "bg-white/20 text-white" : isDark ? "bg-[#2C2A27] text-[#FF9440]" : "bg-[#E4EAE2] text-[#FF7A1A]"
+                        }`}>
+                          {l.proteinRate}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Calculated Metabolic Targets Summary Card */}
+              {(() => {
+                const computedTargets = calculateTargets(bodyWeight, bodyHeight, lifestyle);
+                return (
+                  <div className={`p-3.5 rounded-xl border text-xs space-y-2 font-mono ${
+                    isDark ? "bg-[#141312] border-[#2C2A27]" : "bg-[#F3F6F1] border-[#E4EAE2]"
+                  }`}>
+                    <div className="flex justify-between items-center text-[10px] font-bold text-[#FF7A1A] dark:text-[#FF9440]">
+                      <span>🎯 TARGET METABOLIC SUMMARY</span>
+                      <span>{computedTargets.bmiCategory.toUpperCase()} ({computedTargets.bmi} BMI)</span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 text-center pt-1">
+                      <div className="p-1.5 rounded bg-black/5 dark:bg-white/5">
+                        <span className="text-[8.5px] opacity-60 block">DAILY ENERGY</span>
+                        <span className="font-extrabold text-sm">{computedTargets.calories} kcal</span>
+                      </div>
+                      <div className="p-1.5 rounded bg-black/5 dark:bg-white/5">
+                        <span className="text-[8.5px] opacity-60 block">PROTEIN TARGET</span>
+                        <span className="font-extrabold text-sm text-[#1CA35A] dark:text-[#3ECF8E]">{computedTargets.protein}g</span>
+                      </div>
+                      <div className="p-1.5 rounded bg-black/5 dark:bg-white/5">
+                        <span className="text-[8.5px] opacity-60 block">CARBS / FAT</span>
+                        <span className="font-extrabold text-xs">{computedTargets.carbs}g / {computedTargets.fat}g</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* Diet preferences pills */}
-              <div className="space-y-2">
+              <div className="space-y-2 pt-2 border-t border-dashed border-[#2C2A27]/20 dark:border-[#2C2A27]/60">
                 <span className={`text-[9px] font-mono tracking-wider font-bold block ${isDark ? 'text-[#A8A49C]' : 'text-[#5D6B60]'}`}>
                   DIETARY ALIGNMENT PREFERENCE
                 </span>
@@ -1785,6 +2022,105 @@ export default function App() {
               </div>
             </div>
 
+            {/* Custom Gemini API Key Card */}
+            <div className={`border rounded-[20px] p-5 shadow-sm text-left space-y-4 transition-colors duration-300 ${isDark ? 'bg-[#1E1C1A] border-[#2C2A27]' : 'bg-white border-[#E4EAE2]'}`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Key className="w-4 h-4 text-[#1CA35A] dark:text-[#3ECF8E]" />
+                  <span className={`font-mono text-[9px] uppercase font-bold tracking-[1.6px] ${isDark ? "text-[#A8A49C]" : "text-[#5D6B60]"}`}>
+                    GEMINI API KEY (UNLIMITED ACCESS)
+                  </span>
+                </div>
+                {customApiKey ? (
+                  <span className="py-0.5 px-2 rounded-full font-mono text-[8.5px] font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                    UNLIMITED
+                  </span>
+                ) : (
+                  <span className="py-0.5 px-2 rounded-full font-mono text-[8.5px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                    1 FREE / DAY
+                  </span>
+                )}
+              </div>
+
+              <p className={`text-xs leading-relaxed ${isDark ? 'text-[#A8A49C]' : 'text-[#5D6B60]'}`}>
+                To use this app as a free resource forever without usage limits, add your personal Gemini API key below.
+              </p>
+
+              {/* Notice Toast */}
+              {apiKeySaveNotice && (
+                <div className="p-2.5 rounded-xl text-xs font-mono font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />
+                  <span>{apiKeySaveNotice}</span>
+                </div>
+              )}
+
+              {/* Key Input Field */}
+              <div className="space-y-2">
+                <div className="relative flex items-center">
+                  <input
+                    type={showApiKey ? "text" : "password"}
+                    value={tempApiKeyInput}
+                    onChange={(e) => setTempApiKeyInput(e.target.value)}
+                    placeholder="AIzaSy..."
+                    className={`w-full py-2.5 pl-3 pr-10 border rounded-xl text-xs font-mono focus:outline-none focus:ring-1 transition-colors ${
+                      isDark 
+                        ? 'bg-[#141312] border-[#2C2A27] text-[#F5F2EC] placeholder-[#7A766E] focus:ring-[#3ECF8E] focus:border-[#3ECF8E]' 
+                        : 'bg-[#F3F6F1] border-[#E4EAE2] text-[#15241B] placeholder-[#8B978D] focus:ring-[#1CA35A] focus:border-[#1CA35A]'
+                    }`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowApiKey(!showApiKey)}
+                    className="absolute right-2.5 p-1 border-0 bg-transparent text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 cursor-pointer"
+                  >
+                    {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleSaveApiKey}
+                    disabled={!tempApiKeyInput.trim()}
+                    className={`flex-1 py-2.5 rounded-xl font-display font-extrabold uppercase text-xs tracking-wider border-0 cursor-pointer transition-all ${
+                      tempApiKeyInput.trim()
+                        ? 'bg-[#1CA35A] dark:bg-[#3ECF8E] text-white hover:opacity-95 shadow-sm'
+                        : 'bg-gray-300 dark:bg-gray-800 text-gray-500 cursor-not-allowed'
+                    }`}
+                  >
+                    SAVE KEY
+                  </button>
+
+                  {customApiKey && (
+                    <button
+                      onClick={handleClearApiKey}
+                      className="py-2.5 px-4 rounded-xl font-mono text-xs font-bold text-red-500 border border-red-500/20 bg-red-500/5 hover:bg-red-500/10 cursor-pointer transition-all"
+                    >
+                      CLEAR
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Get Key Link */}
+              <div className="pt-2 border-t border-dashed border-[#2C2A27]/20 dark:border-[#2C2A27]/60 flex items-center justify-between text-[10.5px]">
+                <a
+                  href="https://aistudio.google.com/app/apikey"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-mono font-bold text-[#1CA35A] dark:text-[#3ECF8E] hover:underline flex items-center gap-1"
+                >
+                  <span>🔑 Generate free Gemini API key</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              </div>
+
+              {/* Local environment note */}
+              <div className="flex items-center gap-1.5 text-[9.5px] font-mono opacity-60">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                <span>Stored strictly in browser local storage. Never saved to cloud databases.</span>
+              </div>
+            </div>
+
             {/* Buy coffee Stripe Donation Card */}
             <div className={`border rounded-[20px] p-5 shadow-sm text-left space-y-4 transition-colors duration-300 ${isDark ? 'bg-[#1E1C1A] border-[#2C2A27]' : 'bg-white border-[#E4EAE2]'}`}>
               <div className="flex items-center gap-2">
@@ -1812,30 +2148,13 @@ export default function App() {
                   <span>BUY COFFEE</span>
                 </button>
               </div>
-
-              {/* Dev resets */}
-              <div className="border-t pt-3 border-dashed flex justify-between items-center">
-                <span className={`text-[9px] font-mono uppercase tracking-wider block ${isDark ? 'text-[#7A766E]' : 'text-[#8B978D]'}`}>
-                  DEV Reset Tool
-                </span>
-                <button
-                  onClick={() => {
-                    setHasDonated(false);
-                    localStorage.removeItem("mindful_flow_has_donated");
-                    setDonationSuccessMessage(null);
-                  }}
-                  className="py-1 px-2.5 border border-[#2C2A27]/20 rounded-md text-[8.5px] font-mono hover:text-red-500 hover:border-red-500 bg-transparent cursor-pointer"
-                >
-                  RESET COFFEE SUPPORTER
-                </button>
-              </div>
             </div>
           </div>
         )}
 
         {/* Global Footer trademark */}
         <footer className="pt-2 pb-6 text-center font-mono text-[9px] opacity-45 uppercase tracking-[1.6px]">
-          BALANCEAI · MADE WITH ⚡ FOR CHAMPIONS
+          BALAVIE · MADE WITH ⚡ FOR CHAMPIONS
         </footer>
 
       </main>

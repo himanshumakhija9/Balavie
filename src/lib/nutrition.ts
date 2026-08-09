@@ -1,3 +1,5 @@
+export type Lifestyle = 'sedentary' | 'moderate' | 'active';
+
 export interface NutritionalTargets {
   bmi: number;
   bmiCategory: 'Underweight' | 'Normal weight' | 'Overweight' | 'Obese';
@@ -6,13 +8,21 @@ export interface NutritionalTargets {
   carbs: number;
   fat: number;
   fiber: number;
+  lifestyle: Lifestyle;
 }
 
 /**
- * Calculates nutritional targets based on weight (kg) and height (cm)
- * according to clinical and sports nutrition formulas (Mifflin-St Jeor + activity factor + BMI adjustments).
+ * Calculates nutritional targets based on weight (kg), height (cm), and lifestyle.
+ * According to clinical and sports nutrition guidelines:
+ * - Sedentary requires less protein (~1.1 g/kg) and lower total energy.
+ * - Moderate requires standard athletic baseline (~1.6 g/kg).
+ * - Active requires higher protein (~2.1 g/kg) for tissue repair and higher energy.
  */
-export function calculateTargets(weightKg: number, heightCm: number): NutritionalTargets {
+export function calculateTargets(
+  weightKg: number, 
+  heightCm: number, 
+  lifestyle: Lifestyle = 'moderate'
+): NutritionalTargets {
   const heightM = heightCm / 100;
   const bmi = heightM > 0 ? weightKg / (heightM * heightM) : 0;
   
@@ -28,50 +38,50 @@ export function calculateTargets(weightKg: number, heightCm: number): Nutritiona
   }
 
   // Mifflin-St Jeor BMR: Unisex midpoint baseline
-  // BMR = 10 * weight (kg) + 6.25 * height (cm) - 5 * age (30y midpoint) - 80 (gender-neutral adjust)
   const bmr = 10 * weightKg + 6.25 * heightCm - 5 * 30 - 80;
-  const tdee = bmr * 1.375; // Active athletic baseline factor
+  
+  // Activity / TDEE multiplier based on lifestyle
+  const activityMultiplier = lifestyle === 'sedentary' ? 1.2 : lifestyle === 'active' ? 1.75 : 1.45;
+  const tdee = bmr * activityMultiplier;
 
-  let calories = 2000;
-  let protein = Math.round(weightKg * 1.8);
-  let carbs = 220;
-  let fat = 70;
-  let fiber = 25;
+  // Protein multiplier based on lifestyle (grams per kg body weight)
+  let proteinFactor = 1.6; // Moderate baseline
+  if (lifestyle === 'sedentary') {
+    proteinFactor = 1.1; // Sedentary requires lower protein intake
+  } else if (lifestyle === 'active') {
+    proteinFactor = 2.1; // High active lifestyle requires elevated protein
+  }
+
+  // Category specific adjustments
+  if (category === 'Underweight') {
+    proteinFactor += 0.1;
+  } else if (category === 'Overweight' || category === 'Obese') {
+    proteinFactor += 0.2; // Extra protein for satiety and muscle preservation
+  }
+
+  let calories = Math.round(tdee);
+  let protein = Math.round(weightKg * proteinFactor);
 
   if (category === 'Underweight') {
-    // Healthy energy surplus to build mass safely
-    calories = Math.round(tdee + 400);
-    protein = Math.round(weightKg * 2.0); // Restorative higher protein
-    carbs = Math.round((calories * 0.55) / 4);
-    fat = Math.round((calories * 0.25) / 9);
-    fiber = 25; // Standard high-quality baseline
-  } else if (category === 'Normal weight') {
-    // Energy balance maintenance
-    calories = Math.round(tdee);
-    protein = Math.round(weightKg * 1.8);
-    carbs = Math.round((calories * 0.50) / 4);
-    fat = Math.round((calories * 0.25) / 9);
-    fiber = 28;
+    calories = Math.round(tdee + 350);
   } else if (category === 'Overweight') {
-    // Satiety and moderate thermogenic lean-mass retention deficit
     calories = Math.round(tdee - 350);
-    protein = Math.round(weightKg * 2.2); // Satiety and muscle retention
-    carbs = Math.round((calories * 0.40) / 4);
-    fat = Math.round((calories * 0.25) / 9);
-    fiber = 32; // Elevated fiber target for insulin control & satiety
-  } else { // Obese
-    // Metabolic improvement deficit
-    calories = Math.round(tdee - 550);
-    protein = Math.round(weightKg * 2.3); // Prevent metabolic deceleration
-    carbs = Math.round((calories * 0.35) / 4);
-    fat = Math.round((calories * 0.25) / 9);
-    fiber = 35; // Maximum clinical fiber recommendation
+  } else if (category === 'Obese') {
+    calories = Math.round(tdee - 500);
   }
 
-  // Clinical safety low bounds
-  if (calories < 1200) {
-    calories = 1200;
-  }
+  // Calculate carbs and fats from remaining caloric allowance
+  const proteinCals = protein * 4;
+  const remainingCals = Math.max(500, calories - proteinCals);
+
+  let carbs = Math.round((remainingCals * 0.60) / 4);
+  let fat = Math.round((remainingCals * 0.40) / 9);
+  let fiber = 28;
+
+  if (category === 'Overweight') fiber = 32;
+  if (category === 'Obese') fiber = 35;
+
+  if (calories < 1200) calories = 1200;
 
   return {
     bmi: Number(bmi.toFixed(1)),
@@ -81,5 +91,6 @@ export function calculateTargets(weightKg: number, heightCm: number): Nutritiona
     carbs: carbs > 0 ? carbs : 220,
     fat: fat > 0 ? fat : 70,
     fiber: fiber > 0 ? fiber : 25,
+    lifestyle,
   };
 }
