@@ -2,11 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0"
-  >
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <title>Balavie — Eat Well, Live Bright</title>
 
@@ -28,9 +24,8 @@
     }
 
     main {
-      width: 100%;
       max-width: 720px;
-      margin: 0 auto;
+      margin: auto;
       padding: 80px 24px;
       text-align: center;
     }
@@ -39,7 +34,6 @@
       margin: 0;
       color: #1CA35A;
       font-size: 52px;
-      line-height: 1.1;
     }
 
     .tagline {
@@ -57,68 +51,63 @@
       line-height: 1.7;
     }
 
-    .buttons {
-      margin-top: 24px;
+    button {
+      border: 0;
+      cursor: pointer;
+      font-family: inherit;
     }
 
-    .button {
-      display: inline-block;
+    .primary-button {
       margin: 8px;
       padding: 14px 22px;
-      color: #FFFFFF;
-      background: #1CA35A;
       border-radius: 11px;
+      background: #1CA35A;
+      color: white;
+      font-size: 16px;
       font-weight: bold;
-      text-decoration: none;
     }
 
-    .button.secondary {
+    .primary-button.orange {
       background: #FF7A1A;
     }
 
-    .button:hover,
-    .button:focus {
-      opacity: 0.9;
+    .primary-button:hover,
+    .link-button:hover {
+      opacity: 0.85;
     }
 
     .legal-links {
       display: flex;
       flex-wrap: wrap;
       justify-content: center;
-      gap: 10px 16px;
+      gap: 10px 12px;
       margin-top: 48px;
     }
 
-    .legal-links a {
+    .link-button {
+      padding: 8px 10px;
+      background: transparent;
       color: #0D9488;
-      font-weight: 600;
-      text-decoration: none;
-    }
-
-    .legal-links a:hover,
-    .legal-links a:focus {
-      text-decoration: underline;
+      font-size: 15px;
+      font-weight: bold;
     }
 
     footer {
       max-width: 580px;
       margin: 48px auto 0;
       padding-top: 24px;
-      color: #5D6B60;
       border-top: 1px solid #D8E1D6;
+      color: #5D6B60;
       font-size: 13px;
       line-height: 1.6;
     }
 
-    footer a {
+    .email-button {
+      padding: 0;
+      background: transparent;
       color: #0D9488;
-      font-weight: 600;
-      text-decoration: none;
-    }
-
-    footer a:hover,
-    footer a:focus {
-      text-decoration: underline;
+      font-size: 13px;
+      font-weight: bold;
     }
 
     @media (max-width: 600px) {
@@ -130,12 +119,9 @@
         font-size: 44px;
       }
 
-      .description {
-        font-size: 17px;
-      }
-
-      .button {
+      .primary-button {
         display: block;
+        width: 100%;
         max-width: 280px;
         margin: 12px auto;
       }
@@ -143,12 +129,6 @@
       .legal-links {
         display: grid;
         grid-template-columns: 1fr;
-        gap: 12px;
-      }
-
-      .legal-links a {
-        display: block;
-        padding: 5px;
       }
     }
   </style>
@@ -168,46 +148,64 @@
       AI-assisted estimates.
     </p>
 
-    <div class="buttons">
-      <a
-        class="button"
-        href="https://balavie.ai.studio/"
-        target="_blank"
-        rel="noopener noreferrer"
+    <div>
+      <button
+        class="primary-button"
+        type="button"
+        onclick="window.open('https://balavie.ai.studio/', '_blank')"
       >
         Open Balavie
-      </a>
+      </button>
 
-      <a
-        class="button secondary"
-        href="https://github.com/himanshumakhija9/Balavie"
-        target="_blank"
-        rel="noopener noreferrer"
+      <button
+        class="primary-button orange"
+        type="button"
+        onclick="window.open('https://github.com/himanshumakhija9/Balavie', '_blank')"
       >
         View Source Code
-      </a>
+      </button>
     </div>
 
     <nav class="legal-links" aria-label="Legal and support pages">
-      ./privacy.html
+      <button
+        class="link-button"
+        type="button"
+        onclick="window.location.href='privacy.html'"
+      >
         Privacy Policy
-      </a>
+      </button>
 
-      ./health-disclaimer.html
+      <button
+        class="link-button"
+        type="button"
+        onclick="window.location.href='health-disclaimer.html'"
+      >
         Health Disclaimer
-      </a>
+      </button>
 
-      ./data-deletion.html
+      <button
+        class="link-button"
+        type="button"
+        onclick="window.location.href='data-deletion.html'"
+      >
         Data Deletion
-      </a>
+      </button>
 
-      ./support.html
+      <button
+        class="link-button"
+        type="button"
+        onclick="window.location.href='support.html'"
+      >
         Support
-      </a>
+      </button>
 
-      ./terms.html
+      <button
+        class="link-button"
+        type="button"
+        onclick="window.location.href='terms.html'"
+      >
         Terms of Use
-      </a>
+      </button>
     </nav>
 
     <footer>
@@ -217,15 +215,17 @@
         treatment.
       </p>
 
-      <p>
-        Balavie is intended only for users aged 18 and over.
-      </p>
+      <p>Balavie is intended only for users aged 18 and over.</p>
 
       <p>
         Support:
-        <a href="mailto:hmakhija1995@gmail.com">
+        <button
+          class="email-button"
+          type="button"
+          onclick="window.location.href='mailto:hmakhija1995@gmail.com'"
+        >
           hmakhija1995@gmail.com
-        </a>
+        </button>
       </p>
     </footer>
   </main>
