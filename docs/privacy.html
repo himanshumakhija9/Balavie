@@ -52,19 +52,31 @@
       font-size: 16px;
     }
 
-    a {
-      color: #0D9488;
-      font-weight: 600;
-      text-decoration: none;
+    button {
+      border: 0;
+      cursor: pointer;
+      font-family: inherit;
     }
 
-    a:hover {
+    .nav-button {
+      padding: 6px 8px;
+      background: transparent;
+      color: #0D9488;
+      font-size: 14px;
+      font-weight: bold;
+    }
+
+    .nav-button:hover {
       text-decoration: underline;
     }
 
-    .back-link {
-      display: inline-block;
+    .back-button {
       margin-bottom: 24px;
+      padding: 0;
+      background: transparent;
+      color: #0D9488;
+      font-size: 15px;
+      font-weight: bold;
     }
 
     .updated {
@@ -88,6 +100,14 @@
       border: 1px solid #E4EAE2;
     }
 
+    .action-button {
+      padding: 11px 16px;
+      border-radius: 9px;
+      background: #1CA35A;
+      color: #FFFFFF;
+      font-weight: bold;
+    }
+
     footer {
       margin-top: 48px;
       padding-top: 24px;
@@ -99,7 +119,7 @@
     footer nav {
       display: flex;
       flex-wrap: wrap;
-      gap: 10px 16px;
+      gap: 8px;
     }
 
     @media (max-width: 600px) {
@@ -116,9 +136,13 @@
 
 <body>
   <main>
-    ./index.html
+    <button
+      class="back-button"
+      type="button"
+      onclick="window.location.href='index.html'"
+    >
       ← Back to Balavie
-    </a>
+    </button>
 
     <h1>Privacy Policy</h1>
 
@@ -138,9 +162,9 @@
         <li>Balavie does not sell personal information.</li>
         <li>Balavie does not contain advertising trackers.</li>
         <li>Users provide and manage their own Gemini API key.</li>
-        <li>Meal information is sent to Gemini only upon user request.</li>
+        <li>Information is sent to Gemini only when analysis is requested.</li>
         <li>Saved meal photographs are private by default.</li>
-        <li>Users can delete meals, photographs, and their account.</li>
+        <li>Users can delete meals, photographs and their account.</li>
         <li>Balavie is intended only for users aged 18 and over.</li>
       </ul>
     </div>
@@ -149,60 +173,18 @@
 
     <p>
       Balavie helps users record meals, review estimated calories and
-      nutrients, and receive AI-assisted nutrition and lifestyle estimates.
+      nutrients and receive AI-assisted nutrition and lifestyle estimates.
     </p>
 
-    <p>
-      <a
-        href="https://balavie.ai.studio/"
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        Open Balavie
-      </a>
-    </p>
+    <button
+      class="action-button"
+      type="button"
+      onclick="window.open('https://balavie.ai.studio/', '_blank')"
+    >
+      Open Balavie
+    </button>
 
-    <p>
-      <a
-        href="https://github.com/himanshumakhija9/Balavie"
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        View Balavie source code
-      </a>
-    </p>
-
-    <h2>2. Contact</h2>
-
-    <p>
-      For privacy questions or data-deletion assistance:
-    </p>
-
-    <p>
-      <a href="mailto:hmakhija1995@gmail.com">
-        hmakhija1995@gmail.com
-      </a>
-    </p>
-
-    <p>
-      Never send passwords, Gemini API keys, authentication codes,
-      payment-card information, or private photographs by email.
-    </p>
-
-    <h2>3. Age requirement</h2>
-
-    <p>
-      Balavie is intended only for users aged 18 and over. Users must provide
-      a one-time confirmation that they are at least 18 years old.
-    </p>
-
-    <p>
-      Balavie may store the confirmation status, date, and policy version.
-      Balavie does not require or retain a complete date of birth for this
-      purpose.
-    </p>
-
-    <h2>4. Information processed</h2>
+    <h2>2. Information processed</h2>
 
     <h3>Account information</h3>
 
@@ -218,10 +200,8 @@
 
     <h3>Meal information</h3>
 
-    <p>Balavie may process:</p>
-
     <ul>
-      <li>Meal descriptions, dates, and times</li>
+      <li>Meal descriptions, dates and times</li>
       <li>Meal photographs</li>
       <li>Estimated calories and nutrients</li>
       <li>Balance Scores</li>
@@ -229,8 +209,6 @@
     </ul>
 
     <h3>Profile settings</h3>
-
-    <p>Balavie may process:</p>
 
     <ul>
       <li>Body weight</li>
@@ -240,26 +218,28 @@
       <li>Theme and interface preferences</li>
     </ul>
 
-    <h3>Consent records</h3>
-
-    <p>Balavie may retain:</p>
-
-    <ul>
-      <li>18+ confirmation status, date, and version</li>
-      <li>Gemini consent status, date, and version</li>
-      <li>User-supplied API key acknowledgement</li>
-    </ul>
-
-    <h2>5. Gemini meal analysis</h2>
+    <h2>3. Age and consent</h2>
 
     <p>
-      Balavie uses Google’s Gemini API to generate approximate meal and
-      nutrition estimates.
+      Balavie is intended only for users aged 18 and over. Users provide a
+      one-time 18+ confirmation during onboarding.
     </p>
 
     <p>
-      Balavie operates in Bring Your Own Key mode. Users must supply, fund,
-      protect, and manage their own Gemini API key.
+      Balavie may store the confirmation status, date and policy version.
+      Balavie does not require or retain the user’s complete date of birth.
+    </p>
+
+    <p>
+      Balavie also stores a one-time record of consent to send user-requested
+      meal information to Google’s Gemini API.
+    </p>
+
+    <h2>4. Gemini meal analysis</h2>
+
+    <p>
+      Balavie operates in Bring Your Own Key mode. Users must create, provide,
+      fund, protect and manage their own Gemini API key.
     </p>
 
     <p>When analysis is requested, Balavie may send Gemini:</p>
@@ -273,37 +253,33 @@
 
     <p>
       Information is sent only after the user confirms being 18 or over,
-      accepts the Gemini processing notice, provides a personal API key, and
-      explicitly requests meal analysis.
+      accepts the processing notice, provides an API key and explicitly
+      requests analysis.
     </p>
 
     <p>
-      Google controls Gemini API pricing, quotas, billing, availability, data
-      practices, and service terms. Balavie cannot verify whether a user’s
-      Gemini project is configured for a free or paid service tier.
+      Google controls Gemini pricing, billing, quotas, availability, data
+      practices and service terms. Balavie cannot verify whether a project
+      uses a free or paid Gemini service tier.
     </p>
 
-    <h2>6. Gemini API keys</h2>
+    <h2>5. Gemini API keys</h2>
 
     <p>
-      A Gemini API key may be stored locally in the user’s browser or installed
-      PWA. Gemini keys are not synchronized to Firebase or Firestore.
-    </p>
-
-    <p>
-      The key is transmitted to the Balavie backend only when required for a
-      user-requested Gemini operation.
+      A Gemini API key may be stored locally in the user’s browser or
+      installed PWA. Gemini keys are not synchronized to Firebase or
+      Firestore.
     </p>
 
     <p>
-      Users can remove a saved Gemini API key through Balavie Settings.
+      Users can remove a saved API key through Balavie Settings.
     </p>
 
-    <h2>7. Meal photographs</h2>
+    <h2>6. Meal photographs</h2>
 
     <p>
       Meal photographs may be used for Gemini analysis and saved privately
-      with the user’s meal history.
+      with meal history.
     </p>
 
     <p>
@@ -318,34 +294,29 @@
     </p>
 
     <p>
-      Cloud meal photographs are retained for up to six months unless the user
-      deletes the photograph, meal, or account earlier.
+      Cloud photographs are retained for up to six months unless the user
+      deletes the photograph, meal or account earlier.
     </p>
 
-    <h2>8. Local storage</h2>
+    <h2>7. Local and cloud storage</h2>
 
-    <p>Balavie may store the following information on the user’s device:</p>
+    <p>Balavie may store locally:</p>
 
     <ul>
-      <li>Meal history and locally retained photographs</li>
-      <li>Dietary, activity, and interface settings</li>
+      <li>Meal history and retained photographs</li>
+      <li>Dietary, activity and interface settings</li>
       <li>Analysis counters</li>
-      <li>Gemini API key</li>
+      <li>The user’s Gemini API key</li>
       <li>Age-confirmation and consent records</li>
       <li>Firebase Authentication state</li>
     </ul>
 
-    <h2>9. Cloud synchronization</h2>
-
     <p>
-      Signed-in users may synchronize meal descriptions, nutrition estimates,
-      Balance Scores, recommendations, dates, and private photograph
-      references using Firebase Firestore.
+      Signed-in users may synchronize meal records through Firebase
+      Firestore. Gemini API keys are not synchronized.
     </p>
 
-    <p>Gemini API keys are not synchronized.</p>
-
-    <h2>10. Device permissions</h2>
+    <h2>8. Device permissions</h2>
 
     <p>
       Camera or photo-library access is requested only when the user chooses
@@ -353,136 +324,156 @@
     </p>
 
     <p>
-      Balavie does not require location, contacts, SMS, call-log, or microphone
+      Balavie does not require location, contacts, SMS, call-log or microphone
       access for meal analysis.
     </p>
 
-    <h2>11. Optional donations</h2>
+    <h2>9. Optional donations</h2>
 
     <p>
       Balavie may offer optional donations processed by Stripe. Donations do
-      not unlock premium features, subscriptions, additional analyses, higher
-      limits, or extra storage.
+      not unlock features, subscriptions, higher limits or additional storage.
     </p>
 
     <p>
-      Balavie does not send meal data, photographs, nutrition results,
-      dietary settings, Firebase history, or Gemini API keys to Stripe.
+      Balavie does not send meal information, photographs, nutrition results,
+      dietary settings, Firebase history or Gemini keys to Stripe.
     </p>
 
     <p>
       Balavie does not store complete payment-card information. Gemini API
-      charges are separate and are paid directly by the user to Google.
+      charges are separate and are paid directly to Google.
     </p>
 
-    <h2>12. Service providers</h2>
+    <h2>10. Service providers</h2>
 
     <ul>
       <li>Google Gemini API for meal analysis</li>
-      <li>Google Cloud Run for application hosting</li>
+      <li>Google Cloud Run for hosting</li>
       <li>Firebase Authentication for accounts</li>
       <li>Firebase Firestore for synchronized meal records</li>
-      <li>Firebase Storage for private meal photographs</li>
+      <li>Firebase Storage for private photographs</li>
       <li>Stripe for optional donations</li>
       <li>GitHub and GitHub Pages for source code and policy pages</li>
     </ul>
 
-    <h2>13. Advertising and sale of information</h2>
+    <h2>11. Advertising and information sales</h2>
 
     <p>
       Balavie does not sell or rent personal information and does not use meal
-      information, photographs, dietary settings, or API keys for advertising.
+      information, photographs, dietary settings or API keys for advertising.
     </p>
 
-    <h2>14. Technical logs</h2>
-
-    <p>
-      Hosting providers may generate technical logs concerning requests,
-      runtime errors, security events, and application performance.
-    </p>
-
-    <p>
-      Balavie does not intentionally log Gemini API keys, complete meal
-      photographs, or Base64 image content.
-    </p>
-
-    <h2>15. Data retention</h2>
+    <h2>12. Data retention and deletion</h2>
 
     <ul>
       <li>Meal records remain until deleted by the user.</li>
       <li>Cloud photographs are retained for up to six months.</li>
       <li>Account information remains until account deletion.</li>
       <li>Local information remains until removed from the device.</li>
-      <li>Stripe may retain donation records according to its obligations.</li>
-      <li>Technical logs may remain temporarily in provider systems.</li>
+      <li>Stripe may retain donation records under its own requirements.</li>
     </ul>
 
-    <h2>16. Data deletion</h2>
-
     <p>
-      Users may delete individual meals and photographs from Balavie.
+      Users may delete individual meals and photographs or use
+      <strong>Delete Account &amp; Cloud Data</strong> in Balavie Settings.
     </p>
 
-    <p>
-      Signed-in users may use <strong>Delete Account &amp; Cloud Data</strong>
-      to request deletion of their Firebase account, synchronized records,
-      stored photographs, local information, API key, and consent records.
-    </p>
+    <button
+      class="action-button"
+      type="button"
+      onclick="window.location.href='data-deletion.html'"
+    >
+      View Data Deletion Instructions
+    </button>
+
+    <h2>13. Security</h2>
 
     <p>
-      ./data-deletion.html
-        Read the Account and Data Deletion instructions
-      </a>
-    </p>
-
-    <h2>17. Security</h2>
-
-    <p>
-      Balavie uses HTTPS, Firebase Authentication, and Firebase security rules.
-      No online service can guarantee absolute security.
+      Balavie uses HTTPS, Firebase Authentication and Firebase security rules.
+      No online system can guarantee absolute security.
     </p>
 
     <p>
       Users are responsible for protecting their device, Google account,
-      Balavie session, and Gemini API key.
+      Balavie session and Gemini API key.
     </p>
 
-    <h2>18. Health information</h2>
+    <h2>14. Health information</h2>
 
     <p>
       Balavie provides approximate nutrition information for educational
       purposes only. Results may be inaccurate and are not medical advice,
-      diagnosis, or treatment.
+      diagnosis or treatment.
+    </p>
+
+    <button
+      class="action-button"
+      type="button"
+      onclick="window.location.href='health-disclaimer.html'"
+    >
+      View Health Disclaimer
+    </button>
+
+    <h2>15. Changes and contact</h2>
+
+    <p>
+      This Privacy Policy may be updated when Balavie’s functionality,
+      service providers or data practices change.
     </p>
 
     <p>
-      ./health-disclaimer.html
-        Read the complete Health Disclaimer
-      </a>
-    </p>
-
-    <h2>19. Policy changes</h2>
-
-    <p>
-      This Privacy Policy may be updated when Balavie’s functionality, service
-      providers, data practices, or legal requirements change.
-    </p>
-
-    <h2>20. Contact</h2>
-
-    <p>
-      <a href="mailto:hmakhija1995@gmail.com">
+      Contact:
+      <button
+        class="nav-button"
+        type="button"
+        onclick="window.location.href='mailto:hmakhija1995@gmail.com'"
+      >
         hmakhija1995@gmail.com
-      </a>
+      </button>
     </p>
 
     <footer>
       <nav aria-label="Legal and support pages">
-        ./index.htmlHome</a>
-        ./health-disclaimer.htmlHealth Disclaimer</a>
-        ./data-deletion.htmlData Deletion</a>
-        ./support.htmlSupport</a>
-        ./terms.htmlTerms</a>
+        <button
+          class="nav-button"
+          type="button"
+          onclick="window.location.href='index.html'"
+        >
+          Home
+        </button>
+
+        <button
+          class="nav-button"
+          type="button"
+          onclick="window.location.href='health-disclaimer.html'"
+        >
+          Health Disclaimer
+        </button>
+
+        <button
+          class="nav-button"
+          type="button"
+          onclick="window.location.href='data-deletion.html'"
+        >
+          Data Deletion
+        </button>
+
+        <button
+          class="nav-button"
+          type="button"
+          onclick="window.location.href='support.html'"
+        >
+          Support
+        </button>
+
+        <button
+          class="nav-button"
+          type="button"
+          onclick="window.location.href='terms.html'"
+        >
+          Terms
+        </button>
       </nav>
 
       <p>Balavie · Eat Well · Live Bright</p>
