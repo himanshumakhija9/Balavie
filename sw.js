@@ -2,7 +2,7 @@ const CACHE_NAME = 'mindful-flow-v1';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
-  '/manifest.json',
+  '/manifest.webmanifest',
   '/icon-512.png',
   '/pwa-icon.png'
 ];

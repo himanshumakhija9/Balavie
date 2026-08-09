@@ -1,0 +1,21 @@
+{
+  "id": "/",
+  "name": "Balavie",
+  "short_name": "Balavie",
+  "description": "Balavie is a free and open-source meal and macro tracker that helps users understand their nutrition and build healthier habits through personalized insights.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#F3F6F1",
+  "theme_color": "#0D9488",
+  "categories": ["health", "fitness", "lifestyle"],
+  "icons": [
+    {
+      "src": "/pwa-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

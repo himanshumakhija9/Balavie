@@ -41,7 +41,7 @@ function writeServerLogs(logs: any[]): void {
 
 // Host PWA specific assets explicitly
 app.get("/manifest.json", (req, res) => {
-  res.sendFile(path.join(process.cwd(), "manifest.json"));
+  res.redirect(301, "/manifest.webmanifest");
 });
 
 app.get("/sw.js", (req, res) => {
@@ -903,6 +903,19 @@ Strict JSON Response Schema Rules:
       details: err.message
     });
   }
+});
+
+// Explicit route for PWA manifest to ensure correct MIME type
+app.get("/manifest.webmanifest", (req, res) => {
+  res.setHeader("Content-Type", "application/manifest+json");
+  const prodPath = path.join(process.cwd(), "dist", "manifest.webmanifest");
+  const devPath = path.join(process.cwd(), "public", "manifest.webmanifest");
+  if (fs.existsSync(prodPath)) {
+    return res.sendFile(prodPath);
+  } else if (fs.existsSync(devPath)) {
+    return res.sendFile(devPath);
+  }
+  return res.status(404).send("Manifest not found");
 });
 
 // Configure Vite integration or serve static bundles
