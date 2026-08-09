@@ -12,7 +12,7 @@
 
   <meta
     name="description"
-    content="Balavie is a free and open-source meal and macro tracker."
+    content="Balavie is a free and open-source meal and macro tracker with AI-assisted nutrition estimates."
   >
 
   <style>
@@ -39,10 +39,11 @@
       margin: 0;
       color: #1CA35A;
       font-size: 52px;
+      line-height: 1.1;
     }
 
     .tagline {
-      margin-top: 10px;
+      margin-top: 12px;
       color: #5D6B60;
       font-size: 13px;
       font-weight: bold;
@@ -54,6 +55,10 @@
       margin: 32px auto;
       font-size: 18px;
       line-height: 1.7;
+    }
+
+    .buttons {
+      margin-top: 24px;
     }
 
     .button {
@@ -71,21 +76,67 @@
       background: #FF7A1A;
     }
 
-    nav {
-      margin-top: 48px;
-      line-height: 2;
+    .button:hover {
+      opacity: 0.9;
     }
 
-    nav a {
+    .legal-links {
+      margin-top: 48px;
+      line-height: 2.2;
+    }
+
+    .legal-links a {
       color: #0D9488;
       font-weight: 600;
       text-decoration: none;
     }
 
+    .legal-links a:hover {
+      text-decoration: underline;
+    }
+
     footer {
-      margin-top: 48px;
+      max-width: 580px;
+      margin: 48px auto 0;
+      padding-top: 24px;
       color: #5D6B60;
+      border-top: 1px solid #D8E1D6;
       font-size: 13px;
+      line-height: 1.6;
+    }
+
+    footer a {
+      color: #0D9488;
+      font-weight: 600;
+      text-decoration: none;
+    }
+
+    @media (max-width: 600px) {
+      main {
+        padding: 56px 18px;
+      }
+
+      h1 {
+        font-size: 44px;
+      }
+
+      .description {
+        font-size: 17px;
+      }
+
+      .button {
+        display: block;
+        max-width: 280px;
+        margin: 12px auto;
+      }
+
+      .legal-links span {
+        display: none;
+      }
+
+      .legal-links a {
+        display: block;
+      }
     }
   </style>
 </head>
@@ -104,44 +155,51 @@
       AI-assisted estimates.
     </p>
 
-    <a
-      class="button"
-      href="https://balavie.ai.studio/"
-      target="_blank"
-      rel="noopener noreferrer"
-    >
-      Open Balavie
-    </a>
+    <div class="buttons">
+      <a
+        class="button"
+        href="https://balavie.ai.studio/"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        Open Balavie
+      </a>
 
-    <a
-      class="button secondary"
-      href="https://github.com/himanshumakhija9/Balavie"
-      target="_blank"
-      rel="noopener noreferrer"
-    >
-      View Source Code
-    </a>
+      <a
+        class="button secondary"
+        href="https://github.com/himanshumakhija9/Balavie"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        View Source Code
+      </a>
+    </div>
 
-    <nav aria-label="Legal and support">
+    <nav class="legal-links" aria-label="Legal and support pages">
       ./privacy.htmlPrivacy Policy</a>
-      <span> · </span>
-
-      ./data-deletion.htmlData Deletion</a>
       <span> · </span>
 
       ./health-disclaimer.htmlHealth Disclaimer</a>
       <span> · </span>
 
+      ./data-deletion.htmlData Deletion</a>
+      <span> · </span>
+
       ./support.htmlSupport</a>
       <span> · </span>
 
-      ./terms.htmlTerms</a>
+      ./terms.htmlTerms of Use</a>
     </nav>
 
     <footer>
       <p>
         Balavie provides approximate nutrition information for educational
-        purposes and does not provide medical advice.
+        purposes only and does not provide medical advice, diagnosis, or
+        treatment.
+      </p>
+
+      <p>
+        Balavie is intended only for users aged 18 and over.
       </p>
 
       <p>
