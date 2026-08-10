@@ -24,7 +24,7 @@
     }
 
     main {
-      max-width: 760px;
+      max-width: 800px;
       margin: auto;
       padding: 48px 24px;
       line-height: 1.7;
@@ -47,30 +47,20 @@
       font-size: 16px;
     }
 
-    button {
-      border: 0;
-      cursor: pointer;
-      font-family: inherit;
-    }
-
-    .back-button,
-    .nav-button {
-      padding: 6px 8px;
-      background: transparent;
+    a {
       color: #0D9488;
-      font-size: 14px;
       font-weight: bold;
+      text-decoration: none;
     }
 
-    .back-button {
-      margin-bottom: 24px;
-      padding-left: 0;
-      font-size: 15px;
-    }
-
-    .back-button:hover,
-    .nav-button:hover {
+    a:hover,
+    a:focus {
       text-decoration: underline;
+    }
+
+    .back-link {
+      display: inline-block;
+      margin-bottom: 24px;
     }
 
     .updated {
@@ -87,23 +77,32 @@
     }
 
     .steps {
-      padding: 22px 22px 22px 42px;
+      padding: 22px 22px 22px 44px;
       background: #FFFFFF;
       border: 1px solid #E4EAE2;
       border-radius: 10px;
     }
 
-    .action-button {
+    .button {
+      display: inline-block;
+      margin: 6px 6px 6px 0;
       padding: 12px 18px;
       border-radius: 9px;
       background: #1CA35A;
       color: #FFFFFF;
       font-size: 15px;
       font-weight: bold;
+      text-decoration: none;
     }
 
-    .action-button:hover {
+    .button.orange {
+      background: #FF7A1A;
+    }
+
+    .button:hover,
+    .button:focus {
       opacity: 0.88;
+      text-decoration: none;
     }
 
     footer {
@@ -117,7 +116,7 @@
     footer nav {
       display: flex;
       flex-wrap: wrap;
-      gap: 8px;
+      gap: 10px 16px;
     }
 
     @media (max-width: 600px) {
@@ -128,19 +127,22 @@
       h1 {
         font-size: 34px;
       }
+
+      footer nav {
+        flex-direction: column;
+      }
     }
   </style>
 </head>
 
 <body>
   <main>
-    <button
-      class="back-button"
-      type="button"
-      onclick="window.location.href='index.html'"
+    <a
+      class="back-link"
+      href="https://himanshumakhija9.github.io/Balavie/"
     >
       ← Back to Balavie
-    </button>
+    </a>
 
     <h1>Account and Data Deletion</h1>
 
@@ -166,13 +168,14 @@
       <li>Complete reauthentication if requested.</li>
     </ol>
 
-    <button
-      class="action-button"
-      type="button"
-      onclick="window.open('https://balavie.ai.studio/', '_blank')"
+    <a
+      class="button"
+      href="https://balavie.ai.studio/"
+      target="_blank"
+      rel="noopener noreferrer"
     >
       Open Balavie
-    </button>
+    </a>
 
     <h2>Information deleted</h2>
 
@@ -181,71 +184,69 @@
     <ul>
       <li>The Firebase Authentication account</li>
       <li>Synchronized Firestore meal records</li>
-      <li>Meal photographs stored in Firebase Storage</li>
       <li>Balavie profile and synchronized settings</li>
       <li>Age-confirmation and Gemini-consent records</li>
-      <li>Local meal history and retained photographs</li>
+      <li>Local meal history and IndexedDB photographs on the current device</li>
       <li>The locally stored Gemini API key</li>
-      <li>Local preferences and authentication state</li>
+      <li>Local application preferences and authentication state</li>
     </ul>
 
-    <h2>Delete individual meals or photographs</h2>
+    <h2>Local meal photographs</h2>
 
     <p>
-      Users do not need to delete the complete account to remove an individual
-      meal or photograph.
+      Meal photographs are stored only on the user’s device using IndexedDB.
+      They are not synchronized to Firestore or any Balavie cloud database.
+    </p>
+
+    <p>
+      Deleting a meal removes the associated local photograph from IndexedDB
+      on that device.
+    </p>
+
+    <p>
+      Deleting the Balavie account also clears Balavie’s local IndexedDB photo
+      store on the device used to perform the deletion.
+    </p>
+
+    <p>
+      Clearing browser data, clearing installed PWA data, or uninstalling the
+      application may also delete locally stored photographs.
+    </p>
+
+    <p>
+      Photographs stored on another device must be removed from that device
+      separately because local photographs are not synchronized between
+      devices.
+    </p>
+
+    <h2>Delete individual meals</h2>
+
+    <p>
+      Users do not need to delete their complete account to remove an
+      individual meal.
     </p>
 
     <p>
       Open meal history and use the delete option for the relevant meal.
-      Deleting a meal also removes its associated stored photograph where
-      applicable.
-    </p>
-
-    <h2>Photograph retention</h2>
-
-    <p>
-      Meal photographs stored with Balavie history are private by default and
-      retained for up to six months unless deleted earlier.
-    </p>
-
-    <p>
-      After six months, the photograph and its storage reference are removed.
-      The remaining meal-history record may continue to exist until deleted by
-      the user.
-    </p>
-
-    <p>
-      Balavie does not automatically publish or share meal photographs.
+      Deleting the meal removes its synchronized meal record and its associated
+      local photograph from the current device where applicable.
     </p>
 
     <h2>If you cannot access your account</h2>
 
     <p>
-      If you cannot sign in or access the in-app deletion function, contact
-      Balavie support using the subject:
+      If you cannot sign in or access the in-app deletion feature, submit an
+      account deletion request by email.
     </p>
 
     <p>
-      <strong>Balavie account deletion request</strong>
-    </p>
-
-    <button
-      class="action-button"
-      type="button"
-      onclick="window.location.href='mailto:hmakhija1995@gmail.com?subject=Balavie%20account%20deletion%20request'"
-    >
-      Request Account Deletion
-    </button>
-
-    <p>
-      Send the request from the email address associated with your Balavie
+      Send the request from the email address associated with the Balavie
       account where possible.
     </p>
 
-    <p>
-      Never include your password, Gemini API key, payment-card information,
-      authentication code or private meal photographs in the request.
+        <p>
+      Never include a password, Gemini API key, authentication code,
+      payment-card information, or private meal photograph in the request.
     </p>
 
     <h2>Identity verification</h2>
@@ -256,7 +257,7 @@
     </p>
 
     <p>
-      Balavie will never request your password or Gemini API key for identity
+      Balavie will never request a password or Gemini API key for identity
       verification.
     </p>
 
@@ -282,57 +283,24 @@
 
     <p>
       Stripe may retain transaction information for payment processing,
-      security, fraud prevention, accounting or legal purposes.
+      security, fraud prevention, accounting, or legal purposes.
     </p>
 
     <h2>Important</h2>
 
     <div class="notice">
-      Account deletion is permanent. Deleted synchronized meals, photographs,
-      settings and account information cannot be recovered through Balavie.
+      Account deletion is permanent. Deleted synchronized meals, local
+      photographs, settings, and account information cannot be recovered
+      through Balavie.
     </div>
 
     <footer>
       <nav aria-label="Legal and support pages">
-        <button
-          class="nav-button"
-          type="button"
-          onclick="window.location.href='index.html'"
-        >
-          Home
-        </button>
-
-        <button
-          class="nav-button"
-          type="button"
-          onclick="window.location.href='privacy.html'"
-        >
-          Privacy
-        </button>
-
-        <button
-          class="nav-button"
-          type="button"
-          onclick="window.location.href='health-disclaimer.html'"
-        >
-          Health Disclaimer
-        </button>
-
-        <button
-          class="nav-button"
-          type="button"
-          onclick="window.location.href='support.html'"
-        >
-          Support
-        </button>
-
-        <button
-          class="nav-button"
-          type="button"
-          onclick="window.location.href='terms.html'"
-        >
-          Terms
-        </button>
+        <a href="https://himanshumakhija9.github.io/Balavie/">Home</a>
+        <a href="https://himanshumakhija9.github.io/Balavie/">Privacy</a>
+        <a href="https://himanshumakhija9.github.io/Balavie/">Health Disclaimer</a>
+        <a href="https://himanshumakhija9.github.io/Balavie/">Support</a>
+        <a href="https://himanshumakhija9.github.io/Balavie/">Terms</a>
       </nav>
 
       <p>Balavie · Eat Well · Live Bright</p>
