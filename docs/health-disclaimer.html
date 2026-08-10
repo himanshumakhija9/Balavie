@@ -1,8 +1,8 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <title>Health Disclaimer — Balavie</title>
 
@@ -18,36 +18,59 @@
 
     body {
       margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
       background: #F3F6F1;
       color: #15241B;
-      font-family: Arial, Helvetica, sans-serif;
-      line-height: 1.7;
     }
 
     main {
-      width: 100%;
       max-width: 800px;
-      margin: 0 auto;
+      margin: auto;
       padding: 48px 24px;
+      line-height: 1.7;
     }
 
     h1 {
-      margin: 40px 0 8px;
+      margin-bottom: 8px;
       color: #1CA35A;
       font-size: 40px;
-      line-height: 1.2;
     }
 
     h2 {
-      margin-top: 32px;
-      margin-bottom: 8px;
+      margin-top: 36px;
       color: #1CA35A;
-      font-size: 22px;
+      font-size: 23px;
     }
 
     p,
     li {
       font-size: 16px;
+    }
+
+    button {
+      border: 0;
+      cursor: pointer;
+      font-family: inherit;
+    }
+
+    .back-button,
+    .nav-button {
+      padding: 6px 8px;
+      background: transparent;
+      color: #0D9488;
+      font-size: 14px;
+      font-weight: bold;
+    }
+
+    .back-button {
+      margin-bottom: 24px;
+      padding-left: 0;
+      font-size: 15px;
+    }
+
+    .back-button:hover,
+    .nav-button:hover {
+      text-decoration: underline;
     }
 
     .updated {
@@ -63,48 +86,18 @@
       border-radius: 10px;
     }
 
-    form {
-      display: inline;
-      margin: 0;
-    }
-
-    button {
-      border: 0;
-      background: transparent;
-      color: #0D9488;
-      font-family: Arial, Helvetica, sans-serif;
-      font-size: 14px;
-      font-weight: bold;
-      cursor: pointer;
-    }
-
-    button:hover,
-    button:focus {
-      text-decoration: underline;
-    }
-
-    .back-button {
-      padding: 8px 0;
-      font-size: 15px;
-    }
-
-    .navigation {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
+    footer {
       margin-top: 48px;
       padding-top: 24px;
       border-top: 1px solid #D8E1D6;
-    }
-
-    .navigation button {
-      padding: 8px 10px;
-    }
-
-    .footer-text {
-      margin-top: 18px;
       color: #5D6B60;
       font-size: 14px;
+    }
+
+    footer nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
     }
 
     @media (max-width: 600px) {
@@ -113,13 +106,7 @@
       }
 
       h1 {
-        margin-top: 30px;
         font-size: 34px;
-      }
-
-      .navigation {
-        align-items: flex-start;
-        flex-direction: column;
       }
     }
   </style>
@@ -127,11 +114,13 @@
 
 <body>
   <main>
-    ./index.html
-      <button class="back-button" type="submit">
-        ← Back to Balavie
-      </button>
-    </form>
+    <button
+      class="back-button"
+      type="button"
+      onclick="window.location.href='https://himanshumakhija9.github.io/Balavie/'"
+    >
+      ← Back to Balavie
+    </button>
 
     <h1>Health Disclaimer</h1>
 
@@ -169,9 +158,22 @@
     </p>
 
     <p>
-      Artificial intelligence may produce incorrect, incomplete, outdated,
-      or misleading results. Gemini output must not be treated as
-      professional healthcare or nutrition advice.
+      Artificial intelligence may generate incorrect, incomplete, outdated,
+      or misleading results. Gemini output must not be treated as professional
+      healthcare or nutrition advice.
+    </p>
+
+    <h2>Meal photographs</h2>
+
+    <p>
+      Meal photographs are stored only on the user’s device and are not
+      synchronized to Balavie’s cloud database.
+    </p>
+
+    <p>
+      Photographs remain on the device until the associated meal is deleted,
+      the Balavie account is deleted, or the browser or application storage
+      is cleared.
     </p>
 
     <h2>Allergies and dietary restrictions</h2>
@@ -217,9 +219,9 @@
     <h2>Medical emergencies</h2>
 
     <p>
-      Balavie is not designed for medical emergencies. Contact the
-      appropriate local emergency service immediately if urgent medical
-      assistance is required.
+      Balavie is not designed for medical emergencies. Contact the appropriate
+      local emergency service immediately if urgent medical assistance is
+      required.
     </p>
 
     <h2>Age requirement</h2>
@@ -239,36 +241,59 @@
 
     <h2>Contact</h2>
 
-    <p>
-      Questions about this disclaimer can be sent to:
-      <strong>hmakhija1995@gmail.com</strong>
-    </p>
+    <button
+      class="nav-button"
+      type="button"
+      onclick="window.location.href='mailto:hmakhija1995@gmail.com'"
+    >
+      hmakhija1995@gmail.com
+    </button>
 
-    <nav class="navigation" aria-label="Legal and support pages">
-      ./index.html
-        <button type="submit">Home</button>
-      </form>
+    <footer>
+      <nav aria-label="Legal and support pages">
+        <button
+          class="nav-button"
+          type="button"
+          onclick="window.location.href='https://himanshumakhija9.github.io/Balavie/'"
+        >
+          Home
+        </button>
 
-      ./privacy.html
-        <button type="submit">Privacy</button>
-      </form>
+        <button
+          class="nav-button"
+          type="button"
+          onclick="window.location.href='https://himanshumakhija9.github.io/Balavie/privacy.html'"
+        >
+          Privacy
+        </button>
 
-      ./data-deletion.html
-        <button type="submit">Data Deletion</button>
-      </form>
+        <button
+          class="nav-button"
+          type="button"
+          onclick="window.location.href='https://himanshumakhija9.github.io/Balavie/data-deletion.html'"
+        >
+          Data Deletion
+        </button>
 
-      ./support.html
-        <button type="submit">Support</button>
-      </form>
+        <button
+          class="nav-button"
+          type="button"
+          onclick="window.location.href='https://himanshumakhija9.github.io/Balavie/support.html'"
+        >
+          Support
+        </button>
 
-      ./terms.html
-        <button type="submit">Terms</button>
-      </form>
-    </nav>
+        <button
+          class="nav-button"
+          type="button"
+          onclick="window.location.href='https://himanshumakhija9.github.io/Balavie/terms.html'"
+        >
+          Terms
+        </button>
+      </nav>
 
-    <p class="footer-text">
-      Balavie · Eat Well · Live Bright
-    </p>
+      <p>Balavie · Eat Well · Live Bright</p>
+    </footer>
   </main>
 </body>
 </html>
