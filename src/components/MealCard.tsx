@@ -127,8 +127,8 @@ export default function MealCard({
 
       {/* Photo Banner */}
       <div className="h-32 w-full relative overflow-hidden border-y border-[#2C2A27]/5 dark:border-[#2C2A27]/25">
-        {(log.photoUrl || log.image) ? (
-          <img src={log.photoUrl || log.image} alt={log.name} className="w-full h-full object-cover" />
+        {(log.image || log.photoUrl) ? (
+          <img src={log.image || log.photoUrl} alt={log.name} className="w-full h-full object-cover" />
         ) : (
           <div className="w-full h-full bg-gradient-to-r from-[#1CA35A]/5 via-[#FF7A1A]/5 to-[#1CA35A]/5 flex items-center justify-center">
             <span
@@ -136,7 +136,7 @@ export default function MealCard({
                 isDark ? "text-[#7A766E]" : "text-[#8B978D]"
               }`}
             >
-              📷 FOOD PLATE CAPTURED ONLINE
+              📷 MEAL LOGGED WITH BALAVIE
             </span>
           </div>
         )}

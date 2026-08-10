@@ -47,10 +47,10 @@ import MacroBars from "./components/MacroBars";
 import CalorieChart from "./components/CalorieChart";
 import MealCard from "./components/MealCard";
 import { calculateTargets, Lifestyle } from "./lib/nutrition";
-import { auth, db, googleProvider, storage } from "./firebase";
-import { signInWithPopup, signOut, onAuthStateChanged, reauthenticateWithPopup, deleteUser } from "firebase/auth";
-import { collection, doc, setDoc, deleteDoc, getDocs, query, writeBatch, deleteField, updateDoc } from "firebase/firestore";
-import { ref, uploadString, getDownloadURL, deleteObject } from "firebase/storage";
+import { auth, db, googleProvider } from "./firebase";
+import { signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged, reauthenticateWithPopup, deleteUser } from "firebase/auth";
+import { collection, doc, setDoc, deleteDoc, getDocs, query, writeBatch } from "firebase/firestore";
+import { saveMealPhoto, deleteMealPhoto, clearAllMealPhotos, getAllMealPhotosMap } from "./lib/photoStore";
 
 enum OperationType {
   CREATE = 'create',
@@ -107,6 +107,7 @@ function cleanForFirestore(obj: any): any {
     const result: any = {};
     for (const [key, value] of Object.entries(obj)) {
       if (value === undefined) continue;
+      if (key === 'image' || key === 'photoUrl' || key === 'storagePath' || key === 'uploadedAt' || key === 'autoDeleteAt') continue;
       result[key] = cleanForFirestore(value);
     }
     return result;
@@ -296,6 +297,8 @@ export default function App() {
   const [user, setUser] = useState<any>(null);
   const [authChecking, setAuthChecking] = useState(true);
   const [profileFetched, setProfileFetched] = useState(false);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   // Personalized Diet Type indicating text
   const [dietType, setDietType] = useState<string>(() => {
@@ -562,7 +565,8 @@ export default function App() {
         await signOut(auth).catch(() => {});
       } catch (_) {}
 
-      // Clear local Balavie data after cloud deletion succeeds
+      // Clear local Balavie data and IndexedDB photos after cloud deletion succeeds
+      await clearAllMealPhotos();
       localStorage.clear();
       setPastLogs([]);
       setUser(null);
@@ -673,6 +677,54 @@ export default function App() {
   };
 
 
+
+  const formatAuthError = (err: any): string => {
+    if (!err) return "Sign in failed. Please try again.";
+    const code = err.code || "";
+    const msg = err.message || String(err);
+
+    if (code === "auth/unauthorized-domain") {
+      const currentDomain = typeof window !== "undefined" ? window.location.hostname : "this domain";
+      return `Domain not authorized in Firebase (${currentDomain}). Please add "${currentDomain}" to Authorized Domains in Firebase Console > Authentication > Settings.`;
+    }
+    if (code === "auth/popup-blocked") {
+      return "Sign-in popup was blocked by your browser. Please allow popups or use redirect sign-in below.";
+    }
+    if (code === "auth/popup-closed-by-user") {
+      return "Sign-in window was closed before completing.";
+    }
+    if (code === "auth/cancelled-popup-request") {
+      return "Sign-in request was cancelled by a newer request.";
+    }
+    if (code === "auth/operation-not-allowed") {
+      return "Google Sign-In is not enabled in Firebase Console. Enable Google under Authentication > Sign-in method.";
+    }
+    if (code === "auth/network-request-failed") {
+      return "Network error during sign-in. Please check your internet connection.";
+    }
+    if (code === "auth/user-disabled") {
+      return "This user account has been disabled.";
+    }
+
+    let cleanMsg = msg.replace(/^Firebase:\ *Error\ *\(auth\//, "").replace(/\)\.$/, "");
+    return `Sign-in error: ${cleanMsg || msg}`;
+  };
+
+  // Check for redirect sign-in result on initialization
+  useEffect(() => {
+    getRedirectResult(auth)
+      .then((result) => {
+        if (result?.user) {
+          setAuthError(null);
+        }
+      })
+      .catch((err: any) => {
+        console.error("Redirect sign-in result error:", err);
+        if (err?.code !== "auth/popup-closed-by-user") {
+          setAuthError(formatAuthError(err));
+        }
+      });
+  }, []);
 
   // Listen for Auth changes and trigger synchronization
   useEffect(() => {
@@ -809,44 +861,23 @@ export default function App() {
           // Fetch logs
           const q = query(collection(db, "users", user.uid, "logs"));
           const logsSnap = await getDocs(q);
+          const photosMap = await getAllMealPhotosMap();
           const logsList: MealLog[] = [];
-          const nowMs = Date.now();
 
           for (const docSnap of logsSnap.docs) {
             const logData = { id: docSnap.id, ...docSnap.data() } as MealLog;
-
-            // Automatic deletion after 6 months: check if photo is 6 months old
-            const isExpired = logData.autoDeleteAt ? (new Date(logData.autoDeleteAt).getTime() <= nowMs) : false;
-            if (isExpired && (logData.photoUrl || logData.storagePath || logData.image)) {
-              // Delete image from Firebase Storage safely
-              if (logData.storagePath) {
-                deleteObject(ref(storage, logData.storagePath)).catch(() => {});
-              }
-              // Remove image references from Firestore
-              try {
-                await updateDoc(doc(db, "users", user.uid, "logs", docSnap.id), {
-                  photoUrl: deleteField(),
-                  storagePath: deleteField(),
-                  image: deleteField(),
-                  uploadedAt: deleteField(),
-                  autoDeleteAt: deleteField()
-                });
-              } catch (_) {}
-
-              // Keep the remaining meal-history record intact, strip photo fields from local log object
-              delete logData.photoUrl;
-              delete logData.storagePath;
-              delete logData.image;
-              delete logData.uploadedAt;
-              delete logData.autoDeleteAt;
+            if (photosMap[docSnap.id]) {
+              logData.image = photosMap[docSnap.id];
             }
-
             logsList.push(logData);
           }
 
           const mergedLogs = [...logsList];
           initialUserLogs.forEach(localLog => {
             if (!mergedLogs.some(l => l.id === localLog.id)) {
+              if (photosMap[localLog.id]) {
+                localLog.image = photosMap[localLog.id];
+              }
               mergedLogs.push(localLog);
             }
           });
@@ -858,7 +889,11 @@ export default function App() {
           });
 
           setPastLogs(mergedLogs);
-          localStorage.setItem(`mindful_flow_logs_${user.uid}`, JSON.stringify(mergedLogs));
+          localStorage.setItem(`mindful_flow_logs_${user.uid}`, JSON.stringify(mergedLogs.map(l => {
+            const c = { ...l };
+            delete c.image;
+            return c;
+          })));
           setSyncStatus("synced");
         } catch (err) {
           console.error("Sync error:", err);
@@ -867,16 +902,24 @@ export default function App() {
       } else {
         // Guest mode
         try {
+          const photosMap = await getAllMealPhotosMap();
           const localData = localStorage.getItem("mindful_flow_logs");
+          let loadedLogs: MealLog[] = [];
           if (localData) {
-            setPastLogs(JSON.parse(localData));
+            loadedLogs = JSON.parse(localData);
           } else {
             const lastUid = localStorage.getItem("mindful_flow_last_uid");
             if (lastUid) {
               const userCached = localStorage.getItem(`mindful_flow_logs_${lastUid}`);
-              if (userCached) setPastLogs(JSON.parse(userCached));
+              if (userCached) loadedLogs = JSON.parse(userCached);
             }
           }
+          loadedLogs.forEach(l => {
+            if (photosMap[l.id]) {
+              l.image = photosMap[l.id];
+            }
+          });
+          setPastLogs(loadedLogs);
           setSyncStatus("offline");
         } catch(e) {}
       }
@@ -913,10 +956,21 @@ export default function App() {
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 20 * 1024 * 1024) {
-      setErrorMessage("Photo upload limit is 20MB for fast analysis.");
+
+    if (!file.type.startsWith("image/")) {
+      setErrorMessage("Please select a valid image file.");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      if (cameraInputRef.current) cameraInputRef.current.value = "";
       return;
     }
+
+    if (file.size > 3 * 1024 * 1024) {
+      setErrorMessage("Please choose an image smaller than 3 MB.");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      if (cameraInputRef.current) cameraInputRef.current.value = "";
+      return;
+    }
+
     const reader = new FileReader();
     reader.onloadend = async () => {
       const rawBase64 = reader.result as string;
@@ -1043,6 +1097,7 @@ export default function App() {
         setCurrentAnalysis(null);
         setClarificationAnswers({});
         setTextInput("");
+        const currentCapturedImage = imageInput;
         setImageInput(null);
         if (fileInputRef.current) fileInputRef.current.value = "";
         if (cameraInputRef.current) cameraInputRef.current.value = "";
@@ -1090,24 +1145,12 @@ export default function App() {
           }
 
           const nameToUse = isLearned && matchedPrevLog ? matchedPrevLog.name : data.mealAnalysis.name;
-
           const newLogId = Math.random().toString(36).substring(2, 9) + Date.now().toString(36);
-          const uploadDateIso = new Date().toISOString();
-          const autoDeleteDateIso = new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString();
 
-          let photoUrlToUse: string | undefined = undefined;
-          let storagePathToUse: string | undefined = undefined;
-
-          if (imageInput && user) {
-            try {
-              const storagePath = `users/${user.uid}/meal_photos/${newLogId}.jpg`;
-              const imageRef = ref(storage, storagePath);
-              await uploadString(imageRef, imageInput, "data_url");
-              photoUrlToUse = await getDownloadURL(imageRef);
-              storagePathToUse = storagePath;
-            } catch (err) {
-              console.warn("Could not upload meal photo to Firebase Storage:", err);
-            }
+          if (currentCapturedImage) {
+            saveMealPhoto(newLogId, currentCapturedImage).catch((err) => {
+              console.warn("Could not save photo to IndexedDB:", err);
+            });
           }
 
           const newLog: MealLog = {
@@ -1119,12 +1162,8 @@ export default function App() {
               minute: "2-digit",
             }),
             name: nameToUse,
-            image: imageInput || undefined,
-            photoUrl: photoUrlToUse,
-            storagePath: storagePathToUse,
+            image: currentCapturedImage || undefined,
             ownerUid: user ? user.uid : undefined,
-            uploadedAt: imageInput ? uploadDateIso : undefined,
-            autoDeleteAt: imageInput ? autoDeleteDateIso : undefined,
             calories: finalCalories,
             protein: finalProtein,
             carbs: finalCarbs,
@@ -1179,18 +1218,20 @@ export default function App() {
 
   const saveLogToDb = async (logToSave: MealLog) => {
     setSyncStatus("syncing");
+    const logForLocalStorage = { ...logToSave };
+    delete logForLocalStorage.image;
+
     if (user) {
       try {
         const cachedUserLogs = localStorage.getItem(`mindful_flow_logs_${user.uid}`);
         let parsed: MealLog[] = cachedUserLogs ? JSON.parse(cachedUserLogs) : [];
         parsed = parsed.filter(l => l.id !== logToSave.id);
-        parsed.unshift(logToSave);
+        parsed.unshift(logForLocalStorage);
         localStorage.setItem(`mindful_flow_logs_${user.uid}`, JSON.stringify(parsed));
       } catch(_) {}
 
       try {
         const firestoreData = cleanForFirestore(logToSave);
-        delete firestoreData.image; // Never store Base64 image data inside Firestore documents!
         await setDoc(doc(db, "users", user.uid, "logs", logToSave.id), firestoreData);
         setSyncStatus("synced");
       } catch (e) {
@@ -1201,9 +1242,8 @@ export default function App() {
         const localData = localStorage.getItem("mindful_flow_logs");
         const logs = localData ? JSON.parse(localData) : [];
         const filtered = logs.filter((l: any) => l.id !== logToSave.id);
-        filtered.unshift(logToSave);
+        filtered.unshift(logForLocalStorage);
         localStorage.setItem("mindful_flow_logs", JSON.stringify(filtered));
-        setPastLogs(filtered);
         setSyncStatus("offline");
       } catch(e) {}
     }
@@ -1280,10 +1320,8 @@ export default function App() {
   const deleteHistoryLog = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     
-    const targetLog = pastLogs.find(l => l.id === id);
-    if (targetLog?.storagePath && user) {
-      deleteObject(ref(storage, targetLog.storagePath)).catch(() => {});
-    }
+    // Delete photo from local IndexedDB
+    deleteMealPhoto(id).catch(() => {});
 
     setSyncStatus("syncing");
     setPastLogs(prev => prev.filter(item => item.id !== id));
@@ -1318,13 +1356,9 @@ export default function App() {
 
   const clearAllLogs = async () => {
     setSyncStatus("syncing");
+    await clearAllMealPhotos();
     if (user) {
       try {
-        for (const log of pastLogs) {
-          if (log.storagePath) {
-            deleteObject(ref(storage, log.storagePath)).catch(() => {});
-          }
-        }
         const q = query(collection(db, "users", user.uid, "logs"));
         const snapshot = await getDocs(q);
         const batch = writeBatch(db);
@@ -1370,13 +1404,42 @@ export default function App() {
     }
   };
 
-  // Login handler
-  const handleLogin = async () => {
+  // Login handler supporting popup on desktop, automatic redirect on mobile/PWA, and manual redirect fallback
+  const handleLogin = async (forceRedirect = false) => {
     try {
       setErrorMessage(null);
-      await signInWithPopup(auth, googleProvider);
-    } catch(e: any) {
-      setErrorMessage(e.message || "Sign in failed.");
+      setAuthError(null);
+      setIsLoggingIn(true);
+
+      const isMobileOrPWA = forceRedirect ||
+        /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+        (typeof window !== 'undefined' && window.matchMedia('(display-mode: standalone)').matches) ||
+        (typeof navigator !== 'undefined' && (navigator as any).standalone === true);
+
+      if (isMobileOrPWA) {
+        await signInWithRedirect(auth, googleProvider);
+      } else {
+        try {
+          await signInWithPopup(auth, googleProvider);
+        } catch (e: any) {
+          if (e?.code === "auth/popup-blocked" || e?.code === "auth/popup-closed-by-user") {
+            // Fallback to redirect if popup is blocked or closed
+            try {
+              await signInWithRedirect(auth, googleProvider);
+              return;
+            } catch (redirectErr: any) {
+              setAuthError(formatAuthError(redirectErr));
+            }
+          } else {
+            setAuthError(formatAuthError(e));
+          }
+        }
+      }
+    } catch (e: any) {
+      console.error("Sign in error:", e);
+      setAuthError(formatAuthError(e));
+    } finally {
+      setIsLoggingIn(false);
     }
   };
 
@@ -2152,17 +2215,53 @@ export default function App() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  <h4 className="text-sm font-extrabold">SYNC YOUR BALANCES ONLINE</h4>
+                  <h4 className="text-sm font-extrabold uppercase">SYNC YOUR BALANCES ONLINE</h4>
                   <p className={`text-[11px] leading-relaxed ${isDark ? 'text-[#7A766E]' : 'text-[#8B978D]'}`}>
                     Create an account to synchronize daily streaks, customized macros, and metabolic reports safely across multiple devices.
                   </p>
-                  <button
-                    onClick={handleLogin}
-                    className="w-full flex items-center justify-center gap-2 py-3 bg-[#1CA35A] dark:bg-[#3ECF8E] text-white font-sans text-xs font-bold rounded-xl border-0 cursor-pointer active:scale-95 transition-all shadow-sm"
-                  >
-                    <LogIn className="w-4 h-4" />
-                    <span>SIGN IN WITH GOOGLE</span>
-                  </button>
+
+                  {authError && (
+                    <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-xs space-y-1 text-left">
+                      <div className="flex items-center justify-between font-bold">
+                        <div className="flex items-center gap-1.5">
+                          <AlertCircle className="w-4 h-4 shrink-0" />
+                          <span>AUTHENTICATION ERROR</span>
+                        </div>
+                        <button
+                          onClick={() => setAuthError(null)}
+                          className="p-0.5 border-0 bg-transparent text-red-500 hover:text-red-700 cursor-pointer"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                      <p className="text-[11px] leading-snug">{authError}</p>
+                    </div>
+                  )}
+
+                  <div className="space-y-2 pt-1">
+                    <button
+                      onClick={() => handleLogin(false)}
+                      disabled={isLoggingIn}
+                      className="w-full flex items-center justify-center gap-2 py-3 bg-[#1CA35A] dark:bg-[#3ECF8E] text-white font-sans text-xs font-bold rounded-xl border-0 cursor-pointer active:scale-95 transition-all shadow-sm disabled:opacity-50"
+                    >
+                      {isLoggingIn ? (
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <LogIn className="w-4 h-4" />
+                      )}
+                      <span>{isLoggingIn ? "SIGNING IN..." : "SIGN IN WITH GOOGLE"}</span>
+                    </button>
+
+                    <button
+                      onClick={() => handleLogin(true)}
+                      disabled={isLoggingIn}
+                      className={`w-full text-center py-1.5 text-[10.5px] font-mono underline bg-transparent border-0 cursor-pointer ${
+                        isDark ? 'text-[#A8A49C] hover:text-white' : 'text-[#5D6B60] hover:text-black'
+                      }`}
+                    >
+                      Trouble signing in? Try redirect sign-in
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -2705,7 +2804,7 @@ export default function App() {
                       <li>Results are not medical advice, diagnosis, or treatment.</li>
                       <li>Google processes submitted information under the terms applicable to your Gemini API key.</li>
                       <li>Do not submit confidential information or images that identify another person.</li>
-                      <li>Meal photos are saved privately with your Balavie meal history so you can review or share them later. Photos are automatically deleted after 6 months. You can delete a photo or meal earlier at any time. Balavie never shares a photo automatically.</li>
+                      <li>Meal photos are saved privately on your device so you can review or share them later. Photos are stored locally and never uploaded to cloud storage. You can delete a photo or meal at any time. Balavie never shares a photo automatically.</li>
                     </ul>
 
                     <div className="pt-2 flex flex-wrap items-center gap-2 text-xs">
@@ -2948,7 +3047,7 @@ export default function App() {
                   </div>
                   <h4 className="font-bold text-sm text-emerald-600 dark:text-emerald-400">Account Deleted Permanently</h4>
                   <p className="text-xs opacity-80 leading-relaxed font-mono">
-                    Your Firebase Authentication account, Firestore meal history, cloud photos, and local settings have been permanently deleted.
+                    Your Firebase Authentication account, Firestore meal history, local meal photos, and local settings have been permanently deleted.
                   </p>
                 </div>
               ) : (
@@ -2960,8 +3059,7 @@ export default function App() {
                   <ul className="text-xs space-y-1.5 list-disc list-inside font-mono opacity-80 bg-red-500/5 p-3.5 rounded-xl border border-red-500/20">
                     <li>The Firebase Authentication account</li>
                     <li>All Firestore meal-history records belonging to the user</li>
-                    <li>All meal photos belonging to the user in Firebase Storage</li>
-                    <li>Local meal history and photos</li>
+                    <li>Local meal photos stored on this device</li>
                     <li>Local settings and preferences</li>
                     <li>The stored Gemini API key</li>
                   </ul>

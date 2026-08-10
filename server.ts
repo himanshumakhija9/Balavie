@@ -8,7 +8,6 @@ import Stripe from "stripe";
 import { initializeApp as initAdminApp, getApps as getAdminApps } from "firebase-admin/app";
 import { getAuth as getAdminAuth } from "firebase-admin/auth";
 import { getFirestore as getAdminFirestore } from "firebase-admin/firestore";
-import { getStorage as getAdminStorage } from "firebase-admin/storage";
 
 dotenv.config();
 
@@ -540,16 +539,8 @@ app.post("/api/delete-account", async (req, res) => {
       console.error(`[Delete Account Endpoint] Firestore deletion error for UID ${uid}:`, fsErr);
     }
 
-    // 2. Delete Firebase Storage photos belonging to UID
-    try {
-      const bucket = getAdminStorage().bucket(FIREBASE_STORAGE_BUCKET);
-      await bucket.deleteFiles({ prefix: `users/${uid}/` });
-      storageDeleted = true;
-      console.log(`[Delete Account Endpoint] Storage files deleted for UID: ${uid}`);
-    } catch (stErr: any) {
-      console.warn(`[Delete Account Endpoint] Storage deletion note for UID ${uid}:`, stErr.message);
-      storageDeleted = true; // Non-fatal if bucket is empty or user has no photos
-    }
+    // 2. Local-only meal photo policy: Photos are stored in IndexedDB on device, so no Firebase Storage cleanup needed.
+    storageDeleted = true;
 
     // 3. Delete Authentication Account using Firebase Admin
     try {
