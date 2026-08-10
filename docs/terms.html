@@ -47,30 +47,20 @@
       font-size: 16px;
     }
 
-    button {
-      border: 0;
-      cursor: pointer;
-      font-family: inherit;
-    }
-
-    .back-button,
-    .nav-button {
-      padding: 6px 8px;
-      background: transparent;
+    a {
       color: #0D9488;
-      font-size: 14px;
       font-weight: bold;
+      text-decoration: none;
     }
 
-    .back-button {
-      margin-bottom: 24px;
-      padding-left: 0;
-      font-size: 15px;
-    }
-
-    .back-button:hover,
-    .nav-button:hover {
+    a:hover,
+    a:focus {
       text-decoration: underline;
+    }
+
+    .back-link {
+      display: inline-block;
+      margin-bottom: 24px;
     }
 
     .updated {
@@ -97,7 +87,7 @@
     footer nav {
       display: flex;
       flex-wrap: wrap;
-      gap: 8px;
+      gap: 10px 16px;
     }
 
     @media (max-width: 600px) {
@@ -108,19 +98,22 @@
       h1 {
         font-size: 34px;
       }
+
+      footer nav {
+        flex-direction: column;
+      }
     }
   </style>
 </head>
 
 <body>
   <main>
-    <button
-      class="back-button"
-      type="button"
-      onclick="window.location.href='index.html'"
+    <a
+      class="back-link"
+      href="https://himanshumakhija9.github.io/Balavie/"
     >
       ← Back to Balavie
-    </button>
+    </a>
 
     <h1>Terms of Use</h1>
 
@@ -217,11 +210,28 @@
       <li>Passwords, API keys, payment details, or authentication codes</li>
     </ul>
 
-    <h2>6. Meal photographs and sharing</h2>
+    <h2>6. Local meal photographs and sharing</h2>
 
     <p>
-      Meal photographs saved with Balavie history are private by default.
-      Balavie does not automatically publish or share photographs.
+      Meal photographs are stored only on the user’s current device using
+      IndexedDB. They are not synchronized to Firestore or any Balavie cloud
+      database.
+    </p>
+
+    <p>
+      Local photographs may not be available on another device, even when the
+      user signs in with the same Balavie account.
+    </p>
+
+    <p>
+      Photographs remain on the device until the associated meal is deleted,
+      the account and local data are deleted, or the browser or application
+      storage is cleared.
+    </p>
+
+    <p>
+      Balavie does not automatically publish, upload, or share meal
+      photographs. Sharing must be initiated manually by the user.
     </p>
 
     <p>
@@ -229,17 +239,12 @@
       before initiating any sharing action.
     </p>
 
-    <p>
-      Saved cloud photographs may be automatically deleted after six months,
-      as explained in the Privacy Policy.
-    </p>
-
     <h2>7. Optional donations</h2>
 
     <p>
-      Balavie may provide an optional Stripe donation feature. Donations do not
-      unlock features, subscriptions, additional Gemini analyses, higher usage
-      limits, additional storage, or premium services.
+      Balavie may provide an optional Stripe donation feature. Donations do
+      not unlock features, subscriptions, additional Gemini analyses, higher
+      usage limits, additional storage, or premium services.
     </p>
 
     <p>
@@ -257,13 +262,27 @@
     <h2>9. Account and data deletion</h2>
 
     <p>
-      Users may delete individual meals and photographs or permanently delete
-      their Balavie account and associated cloud data.
+      Users may delete individual meals and associated local photographs or
+      permanently delete their Balavie account and associated cloud data.
     </p>
 
     <p>
       Account deletion is permanent and may remove synchronized meal records,
-      stored photographs, local information, settings, and authentication data.
+      local photographs on the current device, local settings, and
+      authentication data.
+    </p>
+
+    <p>
+      Local photographs stored on another device must be removed separately
+      because photographs are not synchronized between devices.
+    </p>
+
+    <p>
+      <a
+        href="https://himanshumakhija9.github.io/Balavie/data-deletion.html"
+      >
+        Read the Account and Data Deletion instructions
+      </a>
     </p>
 
     <h2>10. Acceptable use</h2>
@@ -289,8 +308,18 @@
 
     <p>
       Open-source availability does not grant permission to impersonate
-      Balavie, misuse its branding, expose user data, or violate third-party
-      service terms.
+      Balavie, misuse its branding, expose user information, or violate
+      third-party service terms.
+    </p>
+
+    <p>
+      <a
+        href="https://github.com/himanshumakhija9/Balavie"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        View Balavie source code
+      </a>
     </p>
 
     <h2>12. Third-party services</h2>
@@ -326,8 +355,9 @@
     </p>
 
     <p>
-      Balavie does not guarantee that the application will be free from errors,
-      data loss, security incidents, service outages, or inaccurate AI output.
+      Balavie does not guarantee that the application will be free from
+      errors, local data loss, security incidents, service outages, or
+      inaccurate AI output.
     </p>
 
     <h2>15. Limitation of responsibility</h2>
@@ -345,11 +375,13 @@
     <h2>16. Privacy</h2>
 
     <p>
-      Balavie’s processing of personal information is explained in the Privacy
-      Policy.
+      <a
+        href="https://himanshumakhija9.github.io/Balavie/">
+        Review the Balavie Privacy Policy
+      </a>
     </p>
 
-    <h2>17. Changes to these terms</h2>
+    <h2>17. Changes to these Terms</h2>
 
     <p>
       These Terms may be updated when Balavie’s functionality, service
@@ -360,50 +392,18 @@
 
     <p>
       Questions about these Terms can be sent to:
-      <strong>hmakhija1995@gmail.com</strong>
+      <a href="mailto:hmakhija1995@gmail.com">
+        hmakhija1995@gmail.com
+      </a>
     </p>
 
     <footer>
       <nav aria-label="Legal and support pages">
-        <button
-          class="nav-button"
-          type="button"
-          onclick="window.location.href='index.html'"
-        >
-          Home
-        </button>
-
-        <button
-          class="nav-button"
-          type="button"
-          onclick="window.location.href='privacy.html'"
-        >
-          Privacy
-        </button>
-
-        <button
-          class="nav-button"
-          type="button"
-          onclick="window.location.href='health-disclaimer.html'"
-        >
-          Health Disclaimer
-        </button>
-
-        <button
-          class="nav-button"
-          type="button"
-          onclick="window.location.href='data-deletion.html'"
-        >
-          Data Deletion
-        </button>
-
-        <button
-          class="nav-button"
-          type="button"
-          onclick="window.location.href='support.html'"
-        >
-          Support
-        </button>
+        <a href="https://himanshumakhija9.github.io/Balavie/">Home</a>
+        <a href="https://himanshumakhija9.github.io/Balavie/">Privacy</a>
+        <a href="https://himanshumakhija9.github.io/Balavie/">Health Disclaimer</a>
+        <a href="https://himanshumakhija9.github.io/Balavie/data-deletion.html">Data Deletion</a>
+        <a href="https://himanshumakhija9.github.io/Balavie/">Support</a>
       </nav>
 
       <p>Balavie · Eat Well · Live Bright</p>
