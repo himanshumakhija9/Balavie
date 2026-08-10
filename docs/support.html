@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Support — Balavie</title>
+
+  <meta
+    name="description"
+    content="Support and contact information for Balavie."
+  >
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: #F3F6F1;
+      color: #15241B;
+    }
+
+    main {
+      max-width: 760px;
+      margin: auto;
+      padding: 48px 24px;
+      line-height: 1.7;
+    }
+
+    h1 {
+      margin-bottom: 8px;
+      color: #1CA35A;
+      font-size: 40px;
+    }
+
+    h2 {
+      margin-top: 36px;
+      color: #1CA35A;
+      font-size: 23px;
+    }
+
+    p,
+    li {
+      font-size: 16px;
+    }
+
+    button {
+      border: 0;
+      cursor: pointer;
+      font-family: inherit;
+    }
+
+    .back-button,
+    .nav-button {
+      padding: 6px 8px;
+      background: transparent;
+      color: #0D9488;
+      font-size: 14px;
+      font-weight: bold;
+    }
+
+    .back-button {
+      margin-bottom: 24px;
+      padding-left: 0;
+      font-size: 15px;
+    }
+
+    .back-button:hover,
+    .nav-button:hover {
+      text-decoration: underline;
+    }
+
+    .updated {
+      color: #5D6B60;
+      font-size: 14px;
+    }
+
+    .notice,
+    .contact-card {
+      margin: 24px 0;
+      padding: 20px;
+      background: #FFFFFF;
+      border-radius: 10px;
+    }
+
+    .notice {
+      border-left: 5px solid #FF7A1A;
+    }
+
+    .contact-card {
+      border: 1px solid #E4EAE2;
+    }
+
+    .action-button {
+      margin: 5px 5px 5px 0;
+      padding: 12px 18px;
+      border-radius: 9px;
+      background: #1CA35A;
+      color: #FFFFFF;
+      font-size: 15px;
+      font-weight: bold;
+    }
+
+    .action-button.orange {
+      background: #FF7A1A;
+    }
+
+    .action-button:hover {
+      opacity: 0.88;
+    }
+
+    footer {
+      margin-top: 48px;
+      padding-top: 24px;
+      border-top: 1px solid #D8E1D6;
+      color: #5D6B60;
+      font-size: 14px;
+    }
+
+    footer nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    @media (max-width: 600px) {
+      main {
+        padding: 32px 18px;
+      }
+
+      h1 {
+        font-size: 34px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main>
+    <button
+      class="back-button"
+      type="button"
+      onclick="window.location.href='index.html'"
+    >
+      ← Back to Balavie
+    </button>
+
+    <h1>Support</h1>
+
+    <p class="updated">
+      <strong>Last updated: 9 August 2026</strong>
+    </p>
+
+    <div class="notice">
+      Balavie is a free and open-source learning project. Support is provided
+      on a reasonable-effort basis, and response times are not guaranteed.
+    </div>
+
+    <h2>Contact Balavie Support</h2>
+
+    <div class="contact-card">
+      <p>
+        Contact Balavie for general questions, technical issues, privacy
+        concerns, security reports or account-deletion assistance.
+      </p>
+
+      <button
+        class="action-button"
+        type="button"
+        onclick="window.location.href='mailto:hmakhija1995@gmail.com?subject=Balavie%20support%20request'"
+      >
+        Email Support
+      </button>
+    </div>
+
+    <h2>Report a technical issue</h2>
+
+    <p>Include the following non-sensitive details:</p>
+
+    <ul>
+      <li>A brief description of the issue</li>
+      <li>The steps that caused the issue</li>
+      <li>The device and browser being used</li>
+      <li>Whether Balavie was installed as a PWA</li>
+      <li>Any non-sensitive error message displayed</li>
+    </ul>
+
+    <button
+      class="action-button orange"
+      type="button"
+      onclick="window.open('https://github.com/himanshumakhija9/Balavie/issues', '_blank')"
+    >
+      Open GitHub Issues
+    </button>
+
+    <h2>Account and data deletion</h2>
+
+    <p>
+      Signed-in users can delete their account through Balavie Settings by
+      selecting <strong>Delete Account &amp; Cloud Data</strong>.
+    </p>
+
+    <p>
+      If the in-app option is unavailable, submit a deletion request by email.
+    </p>
+
+    <button
+      class="action-button"
+      type="button"
+      onclick="window.location.href='data-deletion.html'"
+    >
+      View Deletion Instructions
+    </button>
+
+    <button
+      class="action-button orange"
+      type="button"
+      onclick="window.location.href='mailto:hmakhija1995@gmail.com?subject=Balavie%20account%20deletion%20request'"
+    >
+      Request Account Deletion
+    </button>
+
+    <h2>Gemini API key assistance</h2>
+
+    <p>
+      Balavie uses a Gemini API key supplied and managed by the user. Google
+      controls API keys, billing, pricing, quotas, projects and availability.
+    </p>
+
+    <p>Balavie support cannot:</p>
+
+    <ul>
+      <li>Create or recover a Gemini API key</li>
+      <li>Access a user’s Google Cloud project</li>
+      <li>Configure billing, budgets or quotas</li>
+      <li>Verify whether a project uses a free or paid service tier</li>
+      <li>Refund charges made by Google</li>
+    </ul>
+
+    <h2>Optional donations</h2>
+
+    <p>
+      Balavie is free and open source. Optional donations do not unlock
+      features, subscriptions, additional analyses, additional storage or
+      premium services.
+    </p>
+
+    <p>
+      For a donation issue, provide only the approximate transaction date and
+      the email address used for the transaction.
+    </p>
+
+    <h2>Security reports</h2>
+
+    <p>
+      Do not publish sensitive security information in a public GitHub issue.
+      Submit security concerns privately by email.
+    </p>
+
+    <button
+      class="action-button"
+      type="button"
+      onclick="window.location.href='mailto:hmakhija1995@gmail.com?subject=Balavie%20security%20report'"
+    >
+      Report a Security Issue
+    </button>
+
+    <h2>Never send sensitive information</h2>
+
+    <div class="notice">
+      Never send a Gemini API key, password, authentication code, payment-card
+      information, Firebase credential or private meal photograph by email or
+      through a public GitHub issue.
+    </div>
+
+    <footer>
+      <nav aria-label="Legal and support pages">
+        <button
+          class="nav-button"
+          type="button"
+          onclick="window.location.href='index.html'"
+        >
+          Home
+        </button>
+
+        <button
+          class="nav-button"
+          type="button"
+          onclick="window.location.href='privacy.html'"
+        >
+          Privacy
+        </button>
+
+        <button
+          class="nav-button"
+          type="button"
+          onclick="window.location.href='health-disclaimer.html'"
+        >
+          Health Disclaimer
+        </button>
+
+        <button
+          class="nav-button"
+          type="button"
+          onclick="window.location.href='data-deletion.html'"
+        >
+          Data Deletion
+        </button>
+
+        <button
+          class="nav-button"
+          type="button"
+          onclick="window.location.href='terms.html'"
+        >
+          Terms
+        </button>
+      </nav>
+
+      <p>Balavie · Eat Well · Live Bright</p>
+    </footer>
+  </main>
+</body>
+</html>

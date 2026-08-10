@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Account and Data Deletion — Balavie</title>
+
+  <meta
+    name="description"
+    content="Instructions for deleting a Balavie account and associated data."
+  >
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: #F3F6F1;
+      color: #15241B;
+    }
+
+    main {
+      max-width: 760px;
+      margin: auto;
+      padding: 48px 24px;
+      line-height: 1.7;
+    }
+
+    h1 {
+      margin-bottom: 8px;
+      color: #1CA35A;
+      font-size: 40px;
+    }
+
+    h2 {
+      margin-top: 36px;
+      color: #1CA35A;
+      font-size: 23px;
+    }
+
+    p,
+    li {
+      font-size: 16px;
+    }
+
+    button {
+      border: 0;
+      cursor: pointer;
+      font-family: inherit;
+    }
+
+    .back-button,
+    .nav-button {
+      padding: 6px 8px;
+      background: transparent;
+      color: #0D9488;
+      font-size: 14px;
+      font-weight: bold;
+    }
+
+    .back-button {
+      margin-bottom: 24px;
+      padding-left: 0;
+      font-size: 15px;
+    }
+
+    .back-button:hover,
+    .nav-button:hover {
+      text-decoration: underline;
+    }
+
+    .updated {
+      color: #5D6B60;
+      font-size: 14px;
+    }
+
+    .notice {
+      margin: 24px 0;
+      padding: 20px;
+      background: #FFFFFF;
+      border-left: 5px solid #FF7A1A;
+      border-radius: 10px;
+    }
+
+    .steps {
+      padding: 22px 22px 22px 42px;
+      background: #FFFFFF;
+      border: 1px solid #E4EAE2;
+      border-radius: 10px;
+    }
+
+    .action-button {
+      padding: 12px 18px;
+      border-radius: 9px;
+      background: #1CA35A;
+      color: #FFFFFF;
+      font-size: 15px;
+      font-weight: bold;
+    }
+
+    .action-button:hover {
+      opacity: 0.88;
+    }
+
+    footer {
+      margin-top: 48px;
+      padding-top: 24px;
+      border-top: 1px solid #D8E1D6;
+      color: #5D6B60;
+      font-size: 14px;
+    }
+
+    footer nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    @media (max-width: 600px) {
+      main {
+        padding: 32px 18px;
+      }
+
+      h1 {
+        font-size: 34px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main>
+    <button
+      class="back-button"
+      type="button"
+      onclick="window.location.href='index.html'"
+    >
+      ← Back to Balavie
+    </button>
+
+    <h1>Account and Data Deletion</h1>
+
+    <p class="updated">
+      <strong>Last updated: 9 August 2026</strong>
+    </p>
+
+    <div class="notice">
+      Balavie users can permanently delete their account and associated cloud
+      data from within the application. Account deletion is permanent and
+      cannot be reversed.
+    </div>
+
+    <h2>Delete your Balavie account</h2>
+
+    <ol class="steps">
+      <li>Open Balavie.</li>
+      <li>Sign in to the account you want to delete.</li>
+      <li>Open <strong>Settings</strong>.</li>
+      <li>Select <strong>Delete Account &amp; Cloud Data</strong>.</li>
+      <li>Review the deletion information.</li>
+      <li>Select <strong>Delete Account Permanently</strong>.</li>
+      <li>Complete reauthentication if requested.</li>
+    </ol>
+
+    <button
+      class="action-button"
+      type="button"
+      onclick="window.open('https://balavie.ai.studio/', '_blank')"
+    >
+      Open Balavie
+    </button>
+
+    <h2>Information deleted</h2>
+
+    <p>A successful account deletion removes:</p>
+
+    <ul>
+      <li>The Firebase Authentication account</li>
+      <li>Synchronized Firestore meal records</li>
+      <li>Meal photographs stored in Firebase Storage</li>
+      <li>Balavie profile and synchronized settings</li>
+      <li>Age-confirmation and Gemini-consent records</li>
+      <li>Local meal history and retained photographs</li>
+      <li>The locally stored Gemini API key</li>
+      <li>Local preferences and authentication state</li>
+    </ul>
+
+    <h2>Delete individual meals or photographs</h2>
+
+    <p>
+      Users do not need to delete the complete account to remove an individual
+      meal or photograph.
+    </p>
+
+    <p>
+      Open meal history and use the delete option for the relevant meal.
+      Deleting a meal also removes its associated stored photograph where
+      applicable.
+    </p>
+
+    <h2>Photograph retention</h2>
+
+    <p>
+      Meal photographs stored with Balavie history are private by default and
+      retained for up to six months unless deleted earlier.
+    </p>
+
+    <p>
+      After six months, the photograph and its storage reference are removed.
+      The remaining meal-history record may continue to exist until deleted by
+      the user.
+    </p>
+
+    <p>
+      Balavie does not automatically publish or share meal photographs.
+    </p>
+
+    <h2>If you cannot access your account</h2>
+
+    <p>
+      If you cannot sign in or access the in-app deletion function, contact
+      Balavie support using the subject:
+    </p>
+
+    <p>
+      <strong>Balavie account deletion request</strong>
+    </p>
+
+    <button
+      class="action-button"
+      type="button"
+      onclick="window.location.href='mailto:hmakhija1995@gmail.com?subject=Balavie%20account%20deletion%20request'"
+    >
+      Request Account Deletion
+    </button>
+
+    <p>
+      Send the request from the email address associated with your Balavie
+      account where possible.
+    </p>
+
+    <p>
+      Never include your password, Gemini API key, payment-card information,
+      authentication code or private meal photographs in the request.
+    </p>
+
+    <h2>Identity verification</h2>
+
+    <p>
+      Balavie may need to verify that the requester controls the relevant
+      account to prevent unauthorized deletion.
+    </p>
+
+    <p>
+      Balavie will never request your password or Gemini API key for identity
+      verification.
+    </p>
+
+    <h2>Processing time</h2>
+
+    <p>
+      In-app deletion should be processed after successful authentication and
+      confirmation. Requests submitted through support will be reviewed as
+      soon as reasonably possible.
+    </p>
+
+    <p>
+      Limited technical records may remain temporarily in secure backups or
+      infrastructure logs until automatically overwritten or deleted.
+    </p>
+
+    <h2>Optional donations</h2>
+
+    <p>
+      Deleting a Balavie account does not automatically delete transaction
+      records retained independently by Stripe for an optional donation.
+    </p>
+
+    <p>
+      Stripe may retain transaction information for payment processing,
+      security, fraud prevention, accounting or legal purposes.
+    </p>
+
+    <h2>Important</h2>
+
+    <div class="notice">
+      Account deletion is permanent. Deleted synchronized meals, photographs,
+      settings and account information cannot be recovered through Balavie.
+    </div>
+
+    <footer>
+      <nav aria-label="Legal and support pages">
+        <button
+          class="nav-button"
+          type="button"
+          onclick="window.location.href='index.html'"
+        >
+          Home
+        </button>
+
+        <button
+          class="nav-button"
+          type="button"
+          onclick="window.location.href='privacy.html'"
+        >
+          Privacy
+        </button>
+
+        <button
+          class="nav-button"
+          type="button"
+          onclick="window.location.href='health-disclaimer.html'"
+        >
+          Health Disclaimer
+        </button>
+
+        <button
+          class="nav-button"
+          type="button"
+          onclick="window.location.href='support.html'"
+        >
+          Support
+        </button>
+
+        <button
+          class="nav-button"
+          type="button"
+          onclick="window.location.href='terms.html'"
+        >
+          Terms
+        </button>
+      </nav>
+
+      <p>Balavie · Eat Well · Live Bright</p>
+    </footer>
+  </main>
+</body>
+</html>
